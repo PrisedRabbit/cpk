@@ -115,14 +115,15 @@ function generateClaudeMd(project: Project, agents: Agent[]): string {
 /**
  * Write generated file to .codepakt/ and handle the root file.
  * - Always writes to .codepakt/<filename> (codepakt owns this)
- * - For root files: creates if missing, never overwrites existing
+ * - For root CLAUDE.md: creates if missing, or prepends @import if missing from existing
+ * - For root AGENTS.md: creates if missing, never modifies existing
  */
 function writeGeneratedFile(
   projectDir: string,
   filename: string,
   content: string,
   rootContent: string,
-): { codepaktPath: string; rootCreated: boolean; rootExists: boolean } {
+): { codepaktPath: string; rootCreated: boolean; rootExists: boolean; rootUpdated: boolean } {
   const codepaktDir = join(projectDir, PROJECT_CONFIG_DIR);
   const codepaktPath = join(codepaktDir, filename);
   const rootPath = join(projectDir, filename);
@@ -133,13 +134,22 @@ function writeGeneratedFile(
   // Handle root file
   const rootExists = existsSync(rootPath);
   let rootCreated = false;
+  let rootUpdated = false;
 
   if (!rootExists) {
     writeFileSync(rootPath, rootContent, "utf-8");
     rootCreated = true;
+  } else if (filename === "CLAUDE.md") {
+    // For CLAUDE.md: prepend @import if not already present
+    const existing = readFileSync(rootPath, "utf-8");
+    const importLine = `@import .codepakt/CLAUDE.md`;
+    if (!existing.includes(importLine)) {
+      writeFileSync(rootPath, `${importLine}\n\n${existing}`, "utf-8");
+      rootUpdated = true;
+    }
   }
 
-  return { codepaktPath, rootCreated, rootExists };
+  return { codepaktPath, rootCreated, rootExists, rootUpdated };
 }
 
 /**
@@ -206,8 +216,10 @@ export async function runGenerate(projectDir?: string): Promise<void> {
   console.log(`  .codepakt/CLAUDE.md written`);
   if (claudeResult.rootCreated) {
     console.log(`  CLAUDE.md created (imports .codepakt/CLAUDE.md)`);
+  } else if (claudeResult.rootUpdated) {
+    console.log(`  CLAUDE.md updated — prepended @import .codepakt/CLAUDE.md`);
   } else if (claudeResult.rootExists) {
-    console.log(`  CLAUDE.md exists — add \`@import .codepakt/CLAUDE.md\` to include coordination instructions`);
+    console.log(`  CLAUDE.md already imports .codepakt/CLAUDE.md`);
   }
 }
 
