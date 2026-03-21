@@ -1,0 +1,181 @@
+import { Command } from "commander";
+import { readFileSync } from "node:fs";
+import type { TaskCreateInput } from "../../shared/types.js";
+import { createClient, handleError, output, requireAgentName, requireProjectId } from "../helpers.js";
+
+export const taskCommand = new Command("task").description("Manage tasks");
+
+taskCommand
+  .command("add")
+  .description("Create a new task (or batch create from JSON file)")
+  .option("-t, --title <title>", "Task title")
+  .option("-d, --description <desc>", "Task description")
+  .option("-p, --priority <p>", "Priority: P0, P1, P2", "P1")
+  .option("-e, --epic <epic>", "Epic/feature area name")
+  .option("--capabilities <caps>", "Required capabilities (comma-separated, e.g. code-write,test)")
+  .option("--depends-on <deps>", "Comma-separated task numbers (e.g. T-001,T-002)")
+  .option("--verify <cmd>", "Verification command")
+  .option("--acceptance-criteria <ac...>", "Acceptance criteria (repeatable)")
+  .option("--context-refs <refs...>", "KB doc references (e.g. docs/architecture#auth)")
+  .option("--status <s>", "Initial status: open or backlog", "open")
+  .option("--batch <file>", "Path to JSON file for batch creation")
+  .option("--human", "Human-readable output")
+  .action(async (opts) => {
+    try {
+      requireProjectId();
+      const client = createClient();
+
+      if (opts.batch) {
+        const raw = readFileSync(opts.batch, "utf-8");
+        const inputs = JSON.parse(raw) as TaskCreateInput[];
+        const tasks = await client.createTasksBatch(inputs);
+        console.log(`${tasks.length} tasks created.`);
+        output(tasks, opts.human);
+        return;
+      }
+
+      if (!opts.title) {
+        console.error("--title is required (or use --batch for bulk creation)");
+        process.exit(1);
+      }
+
+      const input: TaskCreateInput = {
+        title: opts.title,
+        description: opts.description,
+        priority: opts.priority,
+        epic: opts.epic,
+        capabilities: opts.capabilities ? opts.capabilities.split(",").map((s: string) => s.trim()) : [],
+        depends_on: opts.dependsOn ? opts.dependsOn.split(",").map((s: string) => s.trim()) : [],
+        verify: opts.verify,
+        acceptance_criteria: opts.acceptanceCriteria ?? [],
+        context_refs: opts.contextRefs ?? [],
+        status: opts.status,
+      };
+
+      const task = await client.createTask(input);
+      output(task, opts.human);
+    } catch (err) {
+      handleError(err);
+    }
+  });
+
+taskCommand
+  .command("list")
+  .description("List tasks")
+  .option("-s, --status <status>", "Filter by status")
+  .option("-a, --assignee <agent>", "Filter by assignee")
+  .option("-e, --epic <epic>", "Filter by epic")
+  .option("-l, --limit <n>", "Max results", "100")
+  .option("--human", "Human-readable output")
+  .action(async (opts) => {
+    try {
+      requireProjectId();
+      const client = createClient();
+      const tasks = await client.listTasks({
+        status: opts.status,
+        assignee: opts.assignee,
+        epic: opts.epic,
+        limit: Number(opts.limit),
+      });
+      output(tasks, opts.human);
+    } catch (err) {
+      handleError(err);
+    }
+  });
+
+taskCommand
+  .command("show <id>")
+  .description("Show task details (by ID or task number like T-001)")
+  .option("--human", "Human-readable output")
+  .action(async (id: string, opts: { human?: boolean }) => {
+    try {
+      requireProjectId();
+      const client = createClient();
+      const task = await client.getTask(id);
+      output(task, opts.human);
+    } catch (err) {
+      handleError(err);
+    }
+  });
+
+taskCommand
+  .command("mine")
+  .description("Show my current tasks (in-progress + review)")
+  .option("--human", "Human-readable output")
+  .action(async (opts: { human?: boolean }) => {
+    try {
+      requireProjectId();
+      const agent = requireAgentName();
+      const client = createClient();
+      const tasks = await client.getMyTasks(agent);
+      output(tasks, opts.human);
+    } catch (err) {
+      handleError(err);
+    }
+  });
+
+taskCommand
+  .command("pickup")
+  .description("Claim the highest-priority available task")
+  .option("--id <taskId>", "Pick up a specific task by number")
+  .option("--human", "Human-readable output")
+  .action(async (opts: { id?: string; human?: boolean }) => {
+    try {
+      requireProjectId();
+      const agent = requireAgentName();
+      const client = createClient();
+      const task = await client.pickupTask(agent, opts.id);
+      output(task, opts.human);
+    } catch (err) {
+      handleError(err);
+    }
+  });
+
+taskCommand
+  .command("done <id>")
+  .description("Complete a task (in-progress → review, or review → done)")
+  .option("--notes <notes>", "Completion notes")
+  .option("--human", "Human-readable output")
+  .action(async (id: string, opts: { notes?: string; human?: boolean }) => {
+    try {
+      requireProjectId();
+      const agent = requireAgentName();
+      const client = createClient();
+      const task = await client.completeTask(id, agent, opts.notes);
+      output(task, opts.human);
+    } catch (err) {
+      handleError(err);
+    }
+  });
+
+taskCommand
+  .command("block <id>")
+  .description("Mark a task as blocked")
+  .requiredOption("-r, --reason <reason>", "Reason for blocking")
+  .option("--human", "Human-readable output")
+  .action(async (id: string, opts: { reason: string; human?: boolean }) => {
+    try {
+      requireProjectId();
+      const agent = requireAgentName();
+      const client = createClient();
+      const task = await client.blockTask(id, opts.reason, agent);
+      output(task, opts.human);
+    } catch (err) {
+      handleError(err);
+    }
+  });
+
+taskCommand
+  .command("unblock <id>")
+  .description("Unblock a task (blocked → open)")
+  .option("--human", "Human-readable output")
+  .action(async (id: string, opts: { human?: boolean }) => {
+    try {
+      requireProjectId();
+      const client = createClient();
+      const task = await client.unblockTask(id);
+      output(task, opts.human);
+    } catch (err) {
+      handleError(err);
+    }
+  });

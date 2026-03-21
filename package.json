@@ -1,0 +1,67 @@
+{
+  "name": "codepakt",
+  "version": "0.1.0",
+  "description": "Codepakt — CLI-first coordination layer for AI coding agents",
+  "type": "module",
+  "bin": {
+    "cpk": "dist/cli/index.js"
+  },
+  "main": "dist/server/index.js",
+  "scripts": {
+    "dev": "tsx watch src/server/start.ts",
+    "dev:cli": "tsx src/cli/index.ts",
+    "build": "tsup",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "typecheck": "tsc --noEmit",
+    "lint": "biome check src/",
+    "format": "biome format --write src/"
+  },
+  "engines": {
+    "node": ">=20.0.0"
+  },
+  "os": [
+    "darwin",
+    "linux"
+  ],
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
+  "keywords": [
+    "ai",
+    "agents",
+    "project-management",
+    "cli",
+    "coordination",
+    "kanban"
+  ],
+  "author": "Sameer Joshi",
+  "license": "MIT",
+  "pnpm": {
+    "onlyBuiltDependencies": [
+      "better-sqlite3",
+      "@biomejs/biome",
+      "esbuild"
+    ]
+  },
+  "dependencies": {
+    "@hono/node-server": "^1.14.1",
+    "better-sqlite3": "^11.7.1",
+    "commander": "^13.1.0",
+    "hono": "^4.7.6",
+    "preact": "^10.29.0",
+    "preact-render-to-string": "^6.6.6",
+    "zod": "^3.24.2"
+  },
+  "devDependencies": {
+    "@biomejs/biome": "^1.9.4",
+    "@types/better-sqlite3": "^7.6.12",
+    "@types/node": "^22.15.3",
+    "tsup": "^8.4.0",
+    "tsx": "^4.19.4",
+    "typescript": "^5.7.3",
+    "vitest": "^3.1.1"
+  }
+}

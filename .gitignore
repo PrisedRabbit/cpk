@@ -1,0 +1,12 @@
+node_modules/
+dist/
+*.db
+*.db-wal
+*.db-shm
+.env
+.env.*
+.codepakt/
+*.log
+.DS_Store
+coverage/
+AGENTS.md
