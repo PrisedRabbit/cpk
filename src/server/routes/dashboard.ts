@@ -21,7 +21,7 @@ const DASHBOARD_HTML = html`<!DOCTYPE html>
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>CPK — Codepakt Dashboard</title>
+<title>codepakt — Dashboard</title>
 <style>
 /* ===== THEME — CSS Custom Properties ===== */
 :root, [data-theme="dark"] {
@@ -62,8 +62,7 @@ body { font-family: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Robo
 .topbar { display: flex; align-items: center; justify-content: space-between; height: 48px;
   padding: 0 20px; border-bottom: 1px solid var(--border-subtle); flex-shrink: 0; }
 .topbar-left { display: flex; align-items: center; gap: 16px; }
-.logo { font-weight: 800; font-size: 15px; letter-spacing: -0.5px; }
-.logo span { color: var(--primary); }
+.logo { font-weight: 700; font-size: 18px; letter-spacing: -0.05em; color: var(--primary); }
 .stats { display: flex; gap: 12px; font-size: 11px; }
 .stats .stat { display: flex; align-items: center; gap: 4px; }
 .stats .dot { width: 6px; height: 6px; border-radius: 50%; }
@@ -228,7 +227,7 @@ body { font-family: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Robo
 <!-- TOP BAR -->
 <div class="topbar">
   <div class="topbar-left">
-    <div class="logo"><span>CPK</span></div>
+    <div class="logo">codepakt</div>
     <select id="project-switcher" class="form-select" style="font-size:12px;max-width:200px;padding:4px 8px" onchange="switchProject(this.value)">
       <option value="">Loading...</option>
     </select>
@@ -764,7 +763,7 @@ function showIntro(errorMsg) {
   document.querySelector('.main').innerHTML =
     '<div style="display:flex;align-items:center;justify-content:center;flex:1;padding:40px">' +
     '<div style="max-width:480px;text-align:center">' +
-    '<div style="font-size:48px;margin-bottom:16px;letter-spacing:-2px;font-weight:800"><span style="color:var(--primary)">CPK</span></div>' +
+    '<div style="font-size:42px;margin-bottom:16px;letter-spacing:-0.05em;font-weight:700;color:var(--primary)">codepakt</div>' +
     '<h2 style="font-size:20px;font-weight:700;margin-bottom:8px">Welcome to Codepakt</h2>' +
     '<p style="color:var(--text-secondary);font-size:13px;line-height:1.6;margin-bottom:24px">' +
     (errorMsg || 'CLI-first coordination layer for AI coding agents. Set up your first project to get started.') +
