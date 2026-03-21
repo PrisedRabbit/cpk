@@ -84,7 +84,8 @@ cli/
 │   │       ├── agent.ts          # cpk agent register/list/status
 │   │       ├── board.ts          # cpk board status
 │   │       ├── docs.ts           # cpk docs write/read/search/list
-│   │       ├── agents-md.ts      # cpk agents-md generate
+│   │       ├── generate.ts       # cpk generate (AGENTS.md + CLAUDE.md)
+│   │       ├── agents-md.ts      # cpk agents-md generate (alias → generate)
 │   │       └── config-cmd.ts     # cpk config set/show
 │   ├── server/
 │   │   ├── index.ts              # Hono app entry
@@ -150,8 +151,11 @@ cpk task list --epic "Auth"    # Filter by epic
 cpk docs search "query"        # Search KB
 cpk docs write --type decision # Write to KB
 cpk agent register --name dev  # Register agent
-cpk agents-md generate         # Generate AGENTS.md
+cpk generate                   # Generate .codepakt/AGENTS.md + .codepakt/CLAUDE.md
+cpk agents-md generate         # Alias for cpk generate
 cpk board status               # Board health
+cpk server logs                # Last 50 lines of server log
+cpk server logs -f             # Follow logs in real time
 ```
 
 ## Conventions

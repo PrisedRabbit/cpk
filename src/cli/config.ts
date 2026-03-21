@@ -40,10 +40,10 @@ export function saveConfig(config: ProjectConfig, projectDir?: string): void {
     mkdirSync(configDir, { recursive: true });
   }
 
-  // Auto-create .gitignore to prevent committing config
+  // Auto-create .gitignore — only ignore config and DB files, not generated .md docs
   const gitignorePath = join(configDir, ".gitignore");
   if (!existsSync(gitignorePath)) {
-    writeFileSync(gitignorePath, "*\n");
+    writeFileSync(gitignorePath, "config.json\n*.db\n*.db-wal\n*.db-shm\n");
   }
 
   const configPath = join(configDir, CONFIG_FILE);

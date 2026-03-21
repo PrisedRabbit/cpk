@@ -2,6 +2,7 @@ import { Command } from "commander";
 import { basename, resolve } from "node:path";
 import { saveConfig } from "../config.js";
 import { createClient, handleError } from "../helpers.js";
+import { runGenerate } from "./generate.js";
 
 export const initCommand = new Command("init")
   .description("Initialize a Codepakt project in the current directory")
@@ -50,7 +51,13 @@ export const initCommand = new Command("init")
         console.log("Board Setup Guide seeded");
       }
 
-      console.log("\nNext steps:");
+      // Generate .codepakt/AGENTS.md and .codepakt/CLAUDE.md
+      console.log("");
+      console.log("Generating coordination files...");
+      await runGenerate(projectPath);
+
+      console.log("");
+      console.log("Next steps:");
       if (opts.prd) {
         console.log('  Ask your agent to set up the board:');
         console.log('    "Read the PRD with `cpk docs search prd` and decompose it');

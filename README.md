@@ -90,10 +90,11 @@ cpk docs list
 cpk docs read <id>
 ```
 
-### Board
+### Board & Generation
 ```bash
 cpk board status       # Board health summary
-cpk agents-md generate # Generate AGENTS.md for your project
+cpk generate           # Generate .codepakt/AGENTS.md + .codepakt/CLAUDE.md
+cpk agents-md generate # Alias for cpk generate (backward compat)
 ```
 
 ## Architecture
@@ -125,6 +126,8 @@ codepakt
 | `~/.codepakt/server.log` | Server logs (`cpk server logs` to view) |
 | `<project>/.codepakt/data.db` | Per-project SQLite database |
 | `<project>/.codepakt/config.json` | Project CLI config (server URL, project ID) |
+| `<project>/.codepakt/AGENTS.md` | Generated agent protocol + roster (committed to git) |
+| `<project>/.codepakt/CLAUDE.md` | Generated Claude Code coordination instructions (committed to git) |
 
 ## Dashboard
 
