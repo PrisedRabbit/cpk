@@ -385,7 +385,15 @@ async function refresh() {
       const updated = tasks.find(t => t.id === selectedTask.id);
       if (updated) { selectedTask = updated; renderDetail(updated); }
     }
-  } catch(e) { console.error('Refresh failed:', e); }
+  } catch(e) {
+    // Stale project ID — reload project list and switch
+    if (e && e.error === 'project_not_found') {
+      console.warn('Project not found, reloading project list...');
+      await loadProjects();
+      return;
+    }
+    console.error('Refresh failed:', e);
+  }
 }
 
 function updateRefreshIndicator() {

@@ -57,6 +57,17 @@ export function handleError(err: Error, c: Context) {
     );
   }
 
+  // Unknown project ID → the DB connection can't be resolved
+  if (err.message?.includes("No database connection for project")) {
+    return c.json(
+      {
+        error: "project_not_found",
+        message: err.message,
+      },
+      404,
+    );
+  }
+
   console.error("Unhandled error:", err);
   return c.json(
     {
