@@ -417,14 +417,21 @@ function renderBoard(tasks, board) {
     return;
   }
 
-  const statuses = [
+  // All known statuses in display order. Blocked and done are rendered separately below.
+  const knownColumns = [
     { key: 'backlog', label: 'Backlog', cls: 'status-backlog' },
     { key: 'open', label: 'Open', cls: 'status-open' },
     { key: 'in-progress', label: 'In Progress', cls: 'status-wip' },
     { key: 'review', label: 'Review', cls: 'status-review' },
   ];
+  const excludeFromColumns = new Set(['blocked', 'done']);
+  const knownKeys = new Set(knownColumns.map(s => s.key).concat([...excludeFromColumns]));
 
-  columns.innerHTML = statuses.map(s => {
+  // Catch any unknown statuses so no task disappears silently
+  const unknownStatuses = [...new Set(tasks.map(t => t.status).filter(s => !knownKeys.has(s)))];
+  const allColumns = [...knownColumns, ...unknownStatuses.map(s => ({ key: s, label: s, cls: '' }))];
+
+  columns.innerHTML = allColumns.map(s => {
     const items = tasks.filter(t => t.status === s.key);
     const count = items.length;
     return '<div class="column ' + s.cls + '">' +
