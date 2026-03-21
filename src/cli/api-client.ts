@@ -91,7 +91,10 @@ export class ApiClient {
   // --- Health ---
 
   async health(): Promise<{ status: string; version: string; uptime_seconds: number }> {
-    return this.request("/health");
+    // Health endpoint returns plain object (no { data: ... } wrapper)
+    const res = await fetch(`${this.baseUrl}/health`, { signal: AbortSignal.timeout(5000) });
+    if (!res.ok) throw new ApiClientError(res.status, "health_check_failed", `HTTP ${res.status}`);
+    return res.json() as Promise<{ status: string; version: string; uptime_seconds: number }>;
   }
 
   // --- Projects ---

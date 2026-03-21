@@ -81,14 +81,24 @@ export function startDaemon(options?: { port?: number; dataDir?: string }): numb
   const pidPath = join(dataDir, PID_FILE);
 
   // Resolve the server start script
-  // In dev: src/server/start.ts (run via tsx)
-  // In prod: dist/server/start.js
+  // In prod (npm link / global install): dist/server/start.js
+  // In dev (tsx): src/server/start.ts
   const __filename = fileURLToPath(import.meta.url);
   const __dirname = dirname(__filename);
-  const startScript = join(__dirname, "start.ts");
-  const startScriptDist = join(__dirname, "start.js");
 
-  const scriptPath = existsSync(startScriptDist) ? startScriptDist : startScript;
+  // Walk up to find the package root (where dist/ and src/ live)
+  // __dirname could be dist/cli/, dist/server/, src/server/, etc.
+  let pkgRoot = __dirname;
+  for (let i = 0; i < 5; i++) {
+    if (existsSync(join(pkgRoot, "package.json"))) break;
+    pkgRoot = dirname(pkgRoot);
+  }
+
+  // Prefer built JS, fall back to TS source (dev mode)
+  const startScriptDist = join(pkgRoot, "dist", "server", "start.js");
+  const startScriptSrc = join(pkgRoot, "src", "server", "start.ts");
+
+  const scriptPath = existsSync(startScriptDist) ? startScriptDist : startScriptSrc;
 
   // Open log file for stdout/stderr
   const logFd = openSync(logPath, "a");

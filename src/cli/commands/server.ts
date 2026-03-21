@@ -24,17 +24,23 @@ serverCommand
     console.log("Starting Codepakt server...");
     const pid = startDaemon({ port, dataDir });
 
-    // Wait briefly and verify
-    await new Promise((r) => setTimeout(r, 1500));
-
-    try {
-      const client = new ApiClient(`http://localhost:${port}`);
-      const health = await client.health();
-      console.log(`Server running on :${port} (PID: ${pid})`);
-      console.log(`  Database: ${dataDir}/data.db`);
-      console.log(`  Version:  ${health.version}`);
-    } catch {
-      console.log(`Server started (PID: ${pid}) but health check failed.`);
+    // Poll health endpoint until ready (up to 10s)
+    const client = new ApiClient(`http://localhost:${port}`);
+    let healthy = false;
+    for (let i = 0; i < 20; i++) {
+      await new Promise((r) => setTimeout(r, 500));
+      try {
+        const health = await client.health();
+        console.log(`Server running on :${port} (PID: ${pid})`);
+        console.log(`  Version:  ${health.version}`);
+        healthy = true;
+        break;
+      } catch {
+        // Not ready yet, retry
+      }
+    }
+    if (!healthy) {
+      console.log(`Server started (PID: ${pid}) but health check failed after 10s.`);
       console.log(`  Check logs: cpk server logs`);
     }
   });
