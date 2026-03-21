@@ -30,7 +30,7 @@ function generateAgentsMd(project: Project, agents: Agent[]): string {
   lines.push("## Agent Protocol");
   lines.push('1. `export CPK_AGENT=<your-name>`');
   lines.push("2. `cpk task mine` — check existing work");
-  lines.push("3. `cpk task pickup` — claim next available task matching your capabilities");
+  lines.push("3. `cpk task pickup` — claim next available task");
   lines.push("4. Read task.context_refs for relevant docs: `cpk docs read <id>`");
   lines.push("5. Do the work");
   lines.push('6. `cpk task done <id> --notes "what you did"`');
@@ -40,26 +40,10 @@ function generateAgentsMd(project: Project, agents: Agent[]): string {
 
   if (agents.length > 0) {
     lines.push("");
-    lines.push("## Agent Roster");
-
+    lines.push("## Active Agents");
     for (const agent of agents) {
-      lines.push("");
-      lines.push(`### ${agent.name}`);
-      if (agent.role) {
-        lines.push(`**Role:** ${agent.role}`);
-      }
-      if (agent.provider) {
-        lines.push(`**Provider:** ${agent.provider}`);
-      }
-      if (agent.capabilities.length > 0) {
-        lines.push(`**Capabilities:** ${agent.capabilities.join(", ")}`);
-      }
-      if (agent.owns.length > 0) {
-        lines.push(`**Owns:** ${agent.owns.join(", ")}`);
-      }
-      if (agent.cannot.length > 0) {
-        lines.push(`**Cannot:** ${agent.cannot.join(", ")}`);
-      }
+      const taskInfo = agent.current_task_id ? `working on ${agent.current_task_id}` : "idle";
+      lines.push(`- **${agent.name}** (${taskInfo})`);
     }
   }
 
@@ -115,19 +99,12 @@ function generateClaudeMd(project: Project, agents: Agent[]): string {
   lines.push("cpk board status                     # Board health");
   lines.push("```");
 
-  // Add agent-specific section if the current agent is known
   if (agents.length > 0) {
     lines.push("");
-    lines.push("## Registered Agents");
+    lines.push("## Active Agents");
     for (const agent of agents) {
-      const parts = [`**${agent.name}**`];
-      if (agent.capabilities.length > 0) {
-        parts.push(`(${agent.capabilities.join(", ")})`);
-      }
-      if (agent.owns.length > 0) {
-        parts.push(`— owns: ${agent.owns.join(", ")}`);
-      }
-      lines.push(`- ${parts.join(" ")}`);
+      const taskInfo = agent.current_task_id ? `working on ${agent.current_task_id}` : "idle";
+      lines.push(`- **${agent.name}** (${taskInfo})`);
     }
   }
 

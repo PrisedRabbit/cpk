@@ -4,7 +4,6 @@
  */
 import type {
   Agent,
-  AgentCreateInput,
   BoardStatus,
   Doc,
   DocCreateInput,
@@ -194,19 +193,8 @@ export class ApiClient {
 
   // --- Agents ---
 
-  async createAgent(input: AgentCreateInput): Promise<Agent> {
-    return this.request(`/api/agents?${this.qs()}`, {
-      method: "POST",
-      body: JSON.stringify(input),
-    });
-  }
-
   async listAgents(): Promise<Agent[]> {
     return this.request(`/api/agents?${this.qs()}`);
-  }
-
-  async getAgent(name: string): Promise<Agent> {
-    return this.request(`/api/agents/${encodeURIComponent(name)}?${this.qs()}`);
   }
 
   // --- Events ---

@@ -91,7 +91,7 @@ tasks.post("/tasks/pickup", async (c) => {
   const task = db.pickupTask(projectId, input.agent);
   if (!task) {
     return c.json(
-      { error: "no_tasks_available", message: "No open tasks match your capabilities" },
+      { error: "no_tasks_available", message: "No open tasks available" },
       404,
     );
   }

@@ -467,7 +467,7 @@ function renderCard(t) {
 function renderAgents(agents) {
   const list = document.getElementById('agent-list');
   if (agents.length === 0) {
-    list.innerHTML = '<div style="color:var(--text-muted);font-size:11px;text-align:center;padding:20px">No agents registered.<br>Use <code class="mono" style="font-size:10px">cpk agent register</code></div>';
+    list.innerHTML = '<div style="color:var(--text-muted);font-size:11px;text-align:center;padding:20px">No agents yet.<br>Agents appear when they pick up tasks.</div>';
     document.getElementById('fleet-cap').style.display = 'none';
     return;
   }
@@ -656,8 +656,7 @@ function showIntro(errorMsg) {
     stepHtml('1', 'Start the server', 'cpk server start') +
     stepHtml('2', 'Initialize a project', 'cd your-project && cpk init') +
     stepHtml('3', 'Add tasks', 'cpk task add --title &quot;Build auth&quot; --priority P0') +
-    stepHtml('4', 'Register an agent', 'cpk agent register --name dev --capabilities code-write,test') +
-    stepHtml('5', 'Pick up work', 'export CPK_AGENT=dev && cpk task pickup') +
+    stepHtml('4', 'Pick up work', 'cpk task pickup --agent dev') +
     '</div>' +
     '</div>' +
     '<p style="color:var(--text-muted);font-size:11px;margin-top:16px">' +

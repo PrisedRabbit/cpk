@@ -1,7 +1,6 @@
 import type { z } from "zod";
-import type { AgentStatus, DocType, Priority, TaskStatus } from "./constants.js";
+import type { DocType, Priority, TaskStatus } from "./constants.js";
 import type {
-  AgentCreateSchema,
   DocCreateSchema,
   ProjectCreateSchema,
   TaskCreateSchema,
@@ -13,7 +12,6 @@ import type {
 export type ProjectCreateInput = z.infer<typeof ProjectCreateSchema>;
 export type TaskCreateInput = z.infer<typeof TaskCreateSchema>;
 export type TaskUpdateInput = z.infer<typeof TaskUpdateSchema>;
-export type AgentCreateInput = z.infer<typeof AgentCreateSchema>;
 export type DocCreateInput = z.infer<typeof DocCreateSchema>;
 
 // --- Domain types (what the DB returns) ---
@@ -55,14 +53,9 @@ export interface Agent {
   id: string;
   project_id: string;
   name: string;
-  role: string | null;
-  capabilities: string[];
-  owns: string[];
-  cannot: string[];
-  provider: string | null;
-  status: AgentStatus;
+  status: string;
   current_task_id: string | null;
-  created_at: string;
+  last_seen: string;
 }
 
 export interface Event {
@@ -112,5 +105,4 @@ export interface BoardStatus {
 export interface ProjectConfig {
   url: string;
   project_id: string;
-  agent_name?: string;
 }

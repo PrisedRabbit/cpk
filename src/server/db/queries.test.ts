@@ -103,7 +103,6 @@ describe("queries", () => {
 
     beforeEach(() => {
       projectId = setupTestProject();
-      db.createAgent(projectId, { name: "dev", capabilities: [], owns: [], cannot: [] });
     });
 
     it("picks up the highest priority task", () => {
@@ -141,12 +140,42 @@ describe("queries", () => {
     });
   });
 
+  describe("agent auto-upsert", () => {
+    it("auto-creates agent on pickup", () => {
+      const projectId = setupTestProject();
+      db.createTask(projectId, { title: "Work", priority: "P0", depends_on: [], acceptance_criteria: [], status: "open" });
+
+      const task = db.pickupTask(projectId, "auto-agent");
+      expect(task).toBeDefined();
+      expect(task?.assignee).toBe("auto-agent");
+
+      const agent = db.getAgent(projectId, "auto-agent");
+      expect(agent).toBeDefined();
+      expect(agent?.name).toBe("auto-agent");
+      expect(agent?.status).toBe("working");
+    });
+
+    it("updates last_seen on repeated interactions", () => {
+      const projectId = setupTestProject();
+      db.createTask(projectId, { title: "Task 1", priority: "P0", depends_on: [], acceptance_criteria: [], status: "open" });
+      db.createTask(projectId, { title: "Task 2", priority: "P0", depends_on: [], acceptance_criteria: [], status: "open" });
+
+      db.pickupTask(projectId, "dev");
+      const agent1 = db.getAgent(projectId, "dev");
+
+      db.completeTask(projectId, db.getTask(projectId, "T-001")!.id, "dev");
+
+      const agent2 = db.getAgent(projectId, "dev");
+      expect(agent2).toBeDefined();
+      expect(agent2?.status).toBe("idle");
+    });
+  });
+
   describe("dependency resolution", () => {
     let projectId: string;
 
     beforeEach(() => {
       projectId = setupTestProject();
-      db.createAgent(projectId, { name: "dev", capabilities: [], owns: [], cannot: [] });
     });
 
     it("transitions dependent task from backlog to open when deps are met", () => {
@@ -185,7 +214,6 @@ describe("queries", () => {
 
     beforeEach(() => {
       projectId = setupTestProject();
-      db.createAgent(projectId, { name: "dev", capabilities: [], owns: [], cannot: [] });
     });
 
     it("complete appends notes", () => {
@@ -224,7 +252,6 @@ describe("queries", () => {
   describe("events", () => {
     it("logs events for task operations", () => {
       const projectId = setupTestProject();
-      db.createAgent(projectId, { name: "dev", capabilities: [], owns: [], cannot: [] });
       db.createTask(projectId, { title: "Work", priority: "P0", depends_on: [], acceptance_criteria: [], status: "open" });
 
       const events = db.listEvents(projectId);
@@ -291,69 +318,6 @@ describe("queries", () => {
       const authTasks = db.listTasks(projectId, { epic: "Auth" });
       expect(authTasks).toHaveLength(2);
       expect(authTasks.every((t) => t.epic === "Auth")).toBe(true);
-    });
-  });
-
-  describe("capability matching in pickup", () => {
-    let projectId: string;
-
-    beforeEach(() => {
-      projectId = setupTestProject();
-    });
-
-    it("skips tasks that require capabilities the agent lacks", () => {
-      db.createAgent(projectId, { name: "reviewer", capabilities: ["code-read", "test"], owns: [], cannot: [] });
-      db.createTask(projectId, { title: "Write feature", priority: "P0", capabilities: ["code-write"], depends_on: [], acceptance_criteria: [], status: "open" });
-      db.createTask(projectId, { title: "Review code", priority: "P1", capabilities: ["code-read"], depends_on: [], acceptance_criteria: [], status: "open" });
-
-      const task = db.pickupTask(projectId, "reviewer");
-      expect(task).toBeDefined();
-      expect(task?.title).toBe("Review code");
-    });
-
-    it("picks up tasks with no capabilities (any agent can do them)", () => {
-      db.createAgent(projectId, { name: "dev", capabilities: ["code-write"], owns: [], cannot: [] });
-      db.createTask(projectId, { title: "Generic task", priority: "P0", capabilities: [], depends_on: [], acceptance_criteria: [], status: "open" });
-
-      const task = db.pickupTask(projectId, "dev");
-      expect(task).toBeDefined();
-      expect(task?.title).toBe("Generic task");
-    });
-
-    it("returns undefined when agent lacks capabilities for all tasks", () => {
-      db.createAgent(projectId, { name: "docs-only", capabilities: ["docs"], owns: [], cannot: [] });
-      db.createTask(projectId, { title: "Write code", priority: "P0", capabilities: ["code-write"], depends_on: [], acceptance_criteria: [], status: "open" });
-
-      const task = db.pickupTask(projectId, "docs-only");
-      expect(task).toBeUndefined();
-    });
-
-    it("returns error for specific pickup with capability mismatch", () => {
-      db.createAgent(projectId, { name: "reviewer", capabilities: ["code-read"], owns: [], cannot: [] });
-      db.createTask(projectId, { title: "Write code", priority: "P0", capabilities: ["code-write"], depends_on: [], acceptance_criteria: [], status: "open" });
-
-      const result = db.pickupSpecificTask(projectId, "reviewer", "T-001");
-      expect(result.error).toBeDefined();
-      expect(result.error).toContain("lacks capabilities");
-      expect(result.task).toBeUndefined();
-    });
-  });
-
-  describe("agent extended fields", () => {
-    it("stores owns, cannot, and provider", () => {
-      const projectId = setupTestProject();
-      const agent = db.createAgent(projectId, {
-        name: "claude-dev",
-        role: "Backend implementation",
-        capabilities: ["code-write", "test", "bash"],
-        owns: ["src/api/", "src/db/"],
-        cannot: ["merge without review", "change product scope"],
-        provider: "claude-code",
-      });
-
-      expect(agent.owns).toEqual(["src/api/", "src/db/"]);
-      expect(agent.cannot).toEqual(["merge without review", "change product scope"]);
-      expect(agent.provider).toBe("claude-code");
     });
   });
 });

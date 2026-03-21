@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import type { AgentCreateInput, DocCreateInput, TaskCreateInput, TaskUpdateInput } from "../../shared/types.js";
+import type { DocCreateInput, TaskCreateInput, TaskUpdateInput } from "../../shared/types.js";
 import type { Agent, Doc, Event, Task } from "../../shared/types.js";
 import { getDb } from "./index.js";
 
@@ -64,14 +64,9 @@ function mapAgent(row: Record<string, unknown>): Agent {
     id: row["id"] as string,
     project_id: row["project_id"] as string,
     name: row["name"] as string,
-    role: (row["role"] as string) ?? null,
-    capabilities: parseJsonArray(row["capabilities"]),
-    owns: parseJsonArray(row["owns"]),
-    cannot: parseJsonArray(row["cannot"]),
-    provider: (row["provider"] as string) ?? null,
-    status: row["status"] as Agent["status"],
+    status: row["status"] as string,
     current_task_id: (row["current_task_id"] as string) ?? null,
-    created_at: row["created_at"] as string,
+    last_seen: row["last_seen"] as string,
   };
 }
 
@@ -259,58 +254,49 @@ export function getAgentTasks(projectId: string, agentName: string): Task[] {
 }
 
 /**
- * Check if agent capabilities satisfy task requirements.
- * task.capabilities ⊆ agent.capabilities
- * If task has no capabilities, any agent can pick it up.
+ * Upsert an agent record. Auto-created on first interaction (pickup/done/block).
+ * No registration needed — agents are just name strings.
  */
-function capabilitiesMatch(taskCaps: string[], agentCaps: string[]): boolean {
-  if (taskCaps.length === 0) return true;
-  return taskCaps.every((cap) => agentCaps.includes(cap));
+function upsertAgent(projectId: string, name: string): void {
+  const db = getDb(projectId);
+  db.prepare(
+    `INSERT INTO agents (id, project_id, name, last_seen)
+     VALUES (?, ?, ?, datetime('now'))
+     ON CONFLICT(project_id, name) DO UPDATE SET last_seen = datetime('now')`
+  ).run(randomUUID(), projectId, name);
 }
 
 /**
  * Atomic task pickup using BEGIN IMMEDIATE.
- * Finds highest-priority open task with deps_met=true and matching capabilities, assigns to agent.
- * Capability check happens INSIDE the transaction — no race window.
+ * Finds highest-priority open task with deps_met=true, assigns to agent.
+ * Agent is auto-created on first pickup — no registration needed.
  */
 export function pickupTask(projectId: string, agentName: string): Task | undefined {
   const db = getDb(projectId);
 
   const result = db.transaction(() => {
-    // Get agent capabilities for matching
-    const agentRow = db
-      .prepare("SELECT capabilities FROM agents WHERE project_id = ? AND name = ?")
-      .get(projectId, agentName) as { capabilities: string } | undefined;
-    const agentCaps = agentRow ? parseJsonArray(agentRow.capabilities) : [];
+    upsertAgent(projectId, agentName);
 
-    // Fetch all candidate tasks (open, deps met) — ordered by priority
-    const candidates = db
+    const match = db
       .prepare(
         `SELECT * FROM tasks
          WHERE project_id = ?
            AND status = 'open'
            AND deps_met = 1
-         ORDER BY CASE priority WHEN 'P0' THEN 0 WHEN 'P1' THEN 1 ELSE 2 END, created_at ASC`
+         ORDER BY CASE priority WHEN 'P0' THEN 0 WHEN 'P1' THEN 1 ELSE 2 END, created_at ASC
+         LIMIT 1`
       )
-      .all(projectId) as Record<string, unknown>[];
-
-    // Find first task whose capabilities the agent satisfies
-    const match = candidates.find((row) => {
-      const taskCaps = parseJsonArray(row["capabilities"]);
-      return capabilitiesMatch(taskCaps, agentCaps);
-    });
+      .get(projectId) as Record<string, unknown> | undefined;
 
     if (!match) return undefined;
 
     const taskId = match["id"] as string;
 
-    // Claim it
     db.prepare(
       `UPDATE tasks SET status = 'in-progress', assignee = ?, started_at = datetime('now'), updated_at = datetime('now')
        WHERE id = ?`
     ).run(agentName, taskId);
 
-    // Update agent status
     db.prepare(
       `UPDATE agents SET status = 'working', current_task_id = ? WHERE project_id = ? AND name = ?`
     ).run(taskId, projectId, agentName);
@@ -334,6 +320,8 @@ export function pickupSpecificTask(
   const db = getDb(projectId);
 
   return db.transaction(() => {
+    upsertAgent(projectId, agentName);
+
     const row = db
       .prepare(
         `SELECT * FROM tasks WHERE project_id = ? AND task_number = ? AND status = 'open' AND deps_met = 1`
@@ -341,17 +329,6 @@ export function pickupSpecificTask(
       .get(projectId, taskNumber) as Record<string, unknown> | undefined;
 
     if (!row) return { error: `Task ${taskNumber} is not available (not open or deps not met)` };
-
-    // Capability check inside transaction
-    const agentRow = db
-      .prepare("SELECT capabilities FROM agents WHERE project_id = ? AND name = ?")
-      .get(projectId, agentName) as { capabilities: string } | undefined;
-    const agentCaps = agentRow ? parseJsonArray(agentRow.capabilities) : [];
-    const taskCaps = parseJsonArray(row["capabilities"]);
-
-    if (!capabilitiesMatch(taskCaps, agentCaps)) {
-      return { error: `Agent '${agentName}' lacks capabilities for ${taskNumber}. Required: [${taskCaps.join(", ")}], agent has: [${agentCaps.join(", ")}]` };
-    }
 
     const taskId = row["id"] as string;
 
@@ -452,6 +429,8 @@ export function completeTask(projectId: string, taskId: string, agentName: strin
   const db = getDb(projectId);
 
   const result = db.transaction(() => {
+    upsertAgent(projectId, agentName);
+
     const existing = db.prepare("SELECT * FROM tasks WHERE id = ? AND project_id = ?").get(taskId, projectId) as
       | Record<string, unknown>
       | undefined;
@@ -517,6 +496,8 @@ export function blockTask(projectId: string, taskId: string, agentName: string, 
   const db = getDb(projectId);
 
   const result = db.transaction(() => {
+    upsertAgent(projectId, agentName);
+
     const existing = db.prepare("SELECT * FROM tasks WHERE id = ? AND project_id = ?").get(taskId, projectId) as
       | Record<string, unknown>
       | undefined;
@@ -621,29 +602,6 @@ function recalculateDependents(projectId: string, completedTaskNumber: string): 
 // ============================================================
 // AGENTS
 // ============================================================
-
-export function createAgent(projectId: string, input: AgentCreateInput): Agent {
-  const db = getDb(projectId);
-  const id = randomUUID();
-
-  db.prepare(
-    `INSERT INTO agents (id, project_id, name, role, capabilities, owns, cannot, provider) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`
-  ).run(
-    id,
-    projectId,
-    input.name,
-    input.role ?? null,
-    JSON.stringify(input.capabilities ?? []),
-    JSON.stringify(input.owns ?? []),
-    JSON.stringify(input.cannot ?? []),
-    input.provider ?? null
-  );
-
-  logEventInternal(projectId, "agent_registered", { name: input.name });
-
-  const row = db.prepare("SELECT * FROM agents WHERE id = ?").get(id) as Record<string, unknown>;
-  return mapAgent(row);
-}
 
 export function getAgent(projectId: string, name: string): Agent | undefined {
   const db = getDb(projectId);

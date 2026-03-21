@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { AGENT_STATUSES, DOC_TYPES, PRIORITIES, TASK_STATUSES } from "./constants.js";
+import { DOC_TYPES, PRIORITIES, TASK_STATUSES } from "./constants.js";
 
 // --- Project schemas ---
 
@@ -63,27 +63,6 @@ export const TaskCompleteSchema = z
 export const TaskBlockSchema = z
   .object({
     reason: z.string().min(1).max(1000),
-  })
-  .strict();
-
-// --- Agent schemas ---
-
-export const AgentCreateSchema = z
-  .object({
-    name: z.string().min(1).max(100),
-    role: z.string().max(200).optional(),
-    capabilities: z.array(z.string()).default([]),
-    owns: z.array(z.string()).default([]),
-    cannot: z.array(z.string()).default([]),
-    provider: z.string().max(50).optional(),
-  })
-  .strict();
-
-export const AgentUpdateSchema = z
-  .object({
-    role: z.string().max(200).optional(),
-    capabilities: z.array(z.string()).optional(),
-    status: z.enum(AGENT_STATUSES).optional(),
   })
   .strict();
 

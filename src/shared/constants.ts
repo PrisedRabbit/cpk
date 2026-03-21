@@ -12,9 +12,6 @@ export type TaskStatus = (typeof TASK_STATUSES)[number];
 export const PRIORITIES = ["P0", "P1", "P2"] as const;
 export type Priority = (typeof PRIORITIES)[number];
 
-export const AGENT_STATUSES = ["idle", "working", "offline"] as const;
-export type AgentStatus = (typeof AGENT_STATUSES)[number];
-
 export const DOC_TYPES = ["operational", "decision", "reference", "learning"] as const;
 export type DocType = (typeof DOC_TYPES)[number];
 

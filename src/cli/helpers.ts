@@ -19,10 +19,10 @@ export function requireProjectId(): string {
   return id;
 }
 
-export function requireAgentName(): string {
-  const name = getAgentName();
+export function requireAgentName(flagValue?: string): string {
+  const name = flagValue ?? getAgentName();
   if (!name) {
-    console.error("No agent name set. Set CPK_AGENT env var or run `cpk config set agent_name <name>`.");
+    console.error("No agent name set. Use --agent flag or set CPK_AGENT env var.");
     process.exit(1);
   }
   return name;

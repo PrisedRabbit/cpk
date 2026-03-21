@@ -67,12 +67,10 @@ export function getServerUrl(projectDir?: string): string {
 }
 
 /**
- * Get agent name from env var or config.
+ * Get agent name from env var.
  */
-export function getAgentName(projectDir?: string): string | undefined {
-  if (process.env["CPK_AGENT"] ?? process.env["APM_AGENT"]) return (process.env["CPK_AGENT"] ?? process.env["APM_AGENT"])!;
-  const config = loadConfig(projectDir);
-  return config?.agent_name;
+export function getAgentName(): string | undefined {
+  return process.env["CPK_AGENT"] ?? process.env["APM_AGENT"];
 }
 
 /**

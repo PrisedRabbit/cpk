@@ -53,20 +53,15 @@ CREATE TABLE IF NOT EXISTS tasks (
     UNIQUE(project_id, task_number)
 );
 
--- agents
+-- agents (auto-created on interaction, no registration needed)
 CREATE TABLE IF NOT EXISTS agents (
     id TEXT PRIMARY KEY,
     project_id TEXT NOT NULL,
     name TEXT NOT NULL,
-    role TEXT,
-    capabilities TEXT NOT NULL DEFAULT '[]',
-    owns TEXT NOT NULL DEFAULT '[]',
-    cannot TEXT NOT NULL DEFAULT '[]',
-    provider TEXT,
     status TEXT NOT NULL DEFAULT 'idle'
-        CHECK (status IN ('idle','working','offline')),
+        CHECK (status IN ('idle','working')),
     current_task_id TEXT,
-    created_at TEXT NOT NULL DEFAULT (datetime('now')),
+    last_seen TEXT NOT NULL DEFAULT (datetime('now')),
     UNIQUE(project_id, name)
 );
 

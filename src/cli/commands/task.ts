@@ -101,11 +101,12 @@ taskCommand
 taskCommand
   .command("mine")
   .description("Show my current tasks (in-progress + review)")
+  .option("-a, --agent <name>", "Agent name (or set CPK_AGENT env var)")
   .option("--human", "Human-readable output")
-  .action(async (opts: { human?: boolean }) => {
+  .action(async (opts: { agent?: string; human?: boolean }) => {
     try {
       requireProjectId();
-      const agent = requireAgentName();
+      const agent = requireAgentName(opts.agent);
       const client = createClient();
       const tasks = await client.getMyTasks(agent);
       output(tasks, opts.human);
@@ -117,12 +118,13 @@ taskCommand
 taskCommand
   .command("pickup")
   .description("Claim the highest-priority available task")
+  .option("-a, --agent <name>", "Agent name (or set CPK_AGENT env var)")
   .option("--id <taskId>", "Pick up a specific task by number")
   .option("--human", "Human-readable output")
-  .action(async (opts: { id?: string; human?: boolean }) => {
+  .action(async (opts: { agent?: string; id?: string; human?: boolean }) => {
     try {
       requireProjectId();
-      const agent = requireAgentName();
+      const agent = requireAgentName(opts.agent);
       const client = createClient();
       const task = await client.pickupTask(agent, opts.id);
       output(task, opts.human);
@@ -134,12 +136,13 @@ taskCommand
 taskCommand
   .command("done <id>")
   .description("Complete a task (in-progress → review, or review → done)")
+  .option("-a, --agent <name>", "Agent name (or set CPK_AGENT env var)")
   .option("--notes <notes>", "Completion notes")
   .option("--human", "Human-readable output")
-  .action(async (id: string, opts: { notes?: string; human?: boolean }) => {
+  .action(async (id: string, opts: { agent?: string; notes?: string; human?: boolean }) => {
     try {
       requireProjectId();
-      const agent = requireAgentName();
+      const agent = requireAgentName(opts.agent);
       const client = createClient();
       const task = await client.completeTask(id, agent, opts.notes);
       output(task, opts.human);
@@ -151,12 +154,13 @@ taskCommand
 taskCommand
   .command("block <id>")
   .description("Mark a task as blocked")
+  .option("-a, --agent <name>", "Agent name (or set CPK_AGENT env var)")
   .requiredOption("-r, --reason <reason>", "Reason for blocking")
   .option("--human", "Human-readable output")
-  .action(async (id: string, opts: { reason: string; human?: boolean }) => {
+  .action(async (id: string, opts: { agent?: string; reason: string; human?: boolean }) => {
     try {
       requireProjectId();
-      const agent = requireAgentName();
+      const agent = requireAgentName(opts.agent);
       const client = createClient();
       const task = await client.blockTask(id, opts.reason, agent);
       output(task, opts.human);

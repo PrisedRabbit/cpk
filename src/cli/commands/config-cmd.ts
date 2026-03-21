@@ -17,10 +17,10 @@ configCommand
 
 configCommand
   .command("set <key> <value>")
-  .description("Set a configuration value (url, project_id, agent_name)")
+  .description("Set a configuration value (url, project_id)")
   .action((key: string, value: string) => {
     const config = loadConfig() ?? { url: "", project_id: "" };
-    const validKeys = ["url", "project_id", "agent_name"];
+    const validKeys = ["url", "project_id"];
 
     if (!validKeys.includes(key)) {
       console.error(`Unknown key: ${key}. Valid keys: ${validKeys.join(", ")}`);
