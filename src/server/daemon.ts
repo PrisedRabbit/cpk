@@ -1,5 +1,5 @@
 /**
- * Daemon management for the APM server.
+ * Daemon management for the Codepakt server.
  * Unix-only (macOS + Ubuntu). Uses fork + detach with PID file.
  */
 import { fork } from "node:child_process";
@@ -9,7 +9,7 @@ import { fileURLToPath } from "node:url";
 import { DEFAULT_DATA_DIR, DEFAULT_PORT, LOG_FILE, PID_FILE, resolveDataDir } from "../shared/constants.js";
 
 function getDataDir(): string {
-  return resolveDataDir(process.env["CPK_DATA_DIR"] ?? process.env["APM_DATA_DIR"] ?? DEFAULT_DATA_DIR);
+  return resolveDataDir(process.env["CPK_DATA_DIR"] ?? DEFAULT_DATA_DIR);
 }
 
 function getPidPath(): string {
@@ -70,7 +70,7 @@ export function startDaemon(options?: { port?: number; dataDir?: string }): numb
   }
 
   const dataDir = options?.dataDir ?? getDataDir();
-  const port = options?.port ?? (Number(process.env["CPK_PORT"] ?? process.env["APM_PORT"]) || DEFAULT_PORT);
+  const port = options?.port ?? (Number(process.env["CPK_PORT"]) || DEFAULT_PORT);
 
   // Ensure data directory exists
   if (!existsSync(dataDir)) {

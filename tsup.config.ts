@@ -16,7 +16,6 @@ export default defineConfig({
   // better-sqlite3 is a native module — cannot be bundled
   external: ["better-sqlite3"],
   banner: {
-    // Add hashbang to CLI entry point
-    js: "// @agentic-pm/cli",
+    js: "// codepakt",
   },
 });

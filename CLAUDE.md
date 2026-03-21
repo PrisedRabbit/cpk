@@ -6,11 +6,9 @@
 
 The core deliverable of Codepakt. Install it, run `cpk server start`, and you have a coordination server with bundled SQLite on port **41920**. No Docker, no Postgres, no external dependencies.
 
-PRD at `../PRD.md`. User stories at `../USER_STORIES.md`.
-
 ## Status — v0.1.0
 
-Week 1 core is **DONE**: daemon server, SQLite DB, task CRUD, atomic pickup, dependency resolution, CLI core commands, tests passing. 35 source files, 27 tests passing.
+Core complete: daemon server, SQLite DB, task CRUD, atomic pickup, dependency resolution, CLI commands, web dashboard, coordination file generation. 24 tests passing.
 
 ## Architecture
 

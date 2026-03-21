@@ -32,14 +32,14 @@ const INDEX_VERSION = 1;
 
 function getIndexPath(): string {
   const dataDir = resolveDataDir(
-    process.env["CPK_DATA_DIR"] ?? process.env["APM_DATA_DIR"] ?? DEFAULT_DATA_DIR,
+    process.env["CPK_DATA_DIR"] ?? DEFAULT_DATA_DIR,
   );
   return join(dataDir, INDEX_FILE);
 }
 
 function ensureGlobalDir(): string {
   const dataDir = resolveDataDir(
-    process.env["CPK_DATA_DIR"] ?? process.env["APM_DATA_DIR"] ?? DEFAULT_DATA_DIR,
+    process.env["CPK_DATA_DIR"] ?? DEFAULT_DATA_DIR,
   );
   if (!existsSync(dataDir)) {
     mkdirSync(dataDir, { recursive: true });

@@ -33,7 +33,7 @@ export function requireAgentName(flagValue?: string): string {
 
 export function output(data: unknown, human?: boolean): void {
   if (human) {
-    // Human-readable output — simple for now, improved in Week 4
+    // Human-readable output
     console.log(JSON.stringify(data, null, 2));
   } else {
     // Compact JSON for agent consumption

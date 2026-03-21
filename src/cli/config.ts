@@ -1,6 +1,6 @@
 /**
  * CLI configuration management.
- * Manages per-project .apm/config.json and global settings.
+ * Manages per-project .codepakt/config.json and global settings.
  */
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
@@ -8,14 +8,14 @@ import { CONFIG_FILE, DEFAULT_DATA_DIR, DEFAULT_PORT, PROJECT_CONFIG_DIR, resolv
 import type { ProjectConfig } from "../shared/types.js";
 
 /**
- * Get the .apm directory path for a project.
+ * Get the .codepakt directory path for a project.
  */
 function getConfigDir(projectDir?: string): string {
   return join(projectDir ?? process.cwd(), PROJECT_CONFIG_DIR);
 }
 
 /**
- * Load project config from .apm/config.json in the current or specified directory.
+ * Load project config from .codepakt/config.json in the current or specified directory.
  */
 export function loadConfig(projectDir?: string): ProjectConfig | undefined {
   const configPath = join(getConfigDir(projectDir), CONFIG_FILE);
@@ -30,8 +30,8 @@ export function loadConfig(projectDir?: string): ProjectConfig | undefined {
 }
 
 /**
- * Save project config to .apm/config.json.
- * Auto-creates .apm/ directory with .gitignore.
+ * Save project config to .codepakt/config.json.
+ * Auto-creates .codepakt/ directory with .gitignore.
  */
 export function saveConfig(config: ProjectConfig, projectDir?: string): void {
   const configDir = getConfigDir(projectDir);
@@ -55,14 +55,14 @@ export function saveConfig(config: ProjectConfig, projectDir?: string): void {
  */
 export function getServerUrl(projectDir?: string): string {
   // Env var takes precedence
-  if (process.env["CPK_URL"] ?? process.env["APM_URL"]) return (process.env["CPK_URL"] ?? process.env["APM_URL"])!;
+  if (process.env["CPK_URL"]) return process.env["CPK_URL"];
 
   // Then project config
   const config = loadConfig(projectDir);
   if (config?.url) return config.url;
 
   // Default to localhost
-  const port = Number(process.env["CPK_PORT"] ?? process.env["APM_PORT"]) || DEFAULT_PORT;
+  const port = Number(process.env["CPK_PORT"]) || DEFAULT_PORT;
   return `http://localhost:${port}`;
 }
 
@@ -70,7 +70,7 @@ export function getServerUrl(projectDir?: string): string {
  * Get agent name from env var.
  */
 export function getAgentName(): string | undefined {
-  return process.env["CPK_AGENT"] ?? process.env["APM_AGENT"];
+  return process.env["CPK_AGENT"];
 }
 
 /**
@@ -85,5 +85,5 @@ export function getProjectId(projectDir?: string): string | undefined {
  * Get the data directory (for server/DB).
  */
 export function getDataDir(): string {
-  return resolveDataDir(process.env["CPK_DATA_DIR"] ?? process.env["APM_DATA_DIR"] ?? DEFAULT_DATA_DIR);
+  return resolveDataDir(process.env["CPK_DATA_DIR"] ?? DEFAULT_DATA_DIR);
 }

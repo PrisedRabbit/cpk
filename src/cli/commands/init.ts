@@ -20,7 +20,7 @@ export const initCommand = new Command("init")
 
       // Save config
       saveConfig({
-        url: client["baseUrl"],
+        url: client.getBaseUrl(),
         project_id: project.id,
       });
       console.log(".codepakt/config.json created");

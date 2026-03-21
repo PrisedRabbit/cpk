@@ -1,7 +1,7 @@
 {
   "name": "codepakt",
   "version": "0.1.0",
-  "description": "Codepakt — CLI-first coordination layer for AI coding agents",
+  "description": "CLI-first coordination layer for AI coding agents",
   "type": "module",
   "bin": {
     "cpk": "dist/cli/index.js"
@@ -16,6 +16,14 @@
     "typecheck": "tsc --noEmit",
     "lint": "biome check src/",
     "format": "biome format --write src/"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/codepakt/cli.git"
+  },
+  "homepage": "https://codepakt.com",
+  "bugs": {
+    "url": "https://github.com/codepakt/cli/issues"
   },
   "engines": {
     "node": ">=20.0.0"
@@ -33,10 +41,14 @@
   "keywords": [
     "ai",
     "agents",
+    "coding-agents",
     "project-management",
     "cli",
     "coordination",
-    "kanban"
+    "kanban",
+    "task-management",
+    "multi-agent",
+    "sqlite"
   ],
   "author": "Sameer Joshi",
   "license": "MIT",
@@ -52,8 +64,6 @@
     "better-sqlite3": "^11.7.1",
     "commander": "^13.1.0",
     "hono": "^4.7.6",
-    "preact": "^10.29.0",
-    "preact-render-to-string": "^6.6.6",
     "zod": "^3.24.2"
   },
   "devDependencies": {

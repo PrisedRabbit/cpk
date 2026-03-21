@@ -1,5 +1,5 @@
 /**
- * HTTP client for talking to the APM server.
+ * HTTP client for talking to the Codepakt server.
  * All CLI commands use this to call the API.
  */
 import type {
@@ -82,6 +82,10 @@ export class ApiClient {
     } finally {
       clearTimeout(timeout);
     }
+  }
+
+  getBaseUrl(): string {
+    return this.baseUrl;
   }
 
   setProjectId(id: string): void {

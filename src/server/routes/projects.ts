@@ -4,12 +4,7 @@ import { join } from "node:path";
 import { DB_FILE, PROJECT_CONFIG_DIR } from "../../shared/constants.js";
 import { ProjectCreateSchema } from "../../shared/schemas.js";
 import { SCHEMA_VERSION, openDatabase } from "../db/index.js";
-import {
-  getProjectEntry,
-  listProjectEntries,
-  registerProject,
-  touchProject,
-} from "../db/project-index.js";
+import { getProjectEntry, listProjectEntries, registerProject, touchProject } from "../db/project-index.js";
 import { BadRequestError, NotFoundError } from "../middleware/error.js";
 
 const projects = new Hono();
@@ -78,30 +73,20 @@ projects.get("/projects", (c) => {
 projects.get("/projects/:id", (c) => {
   const id = c.req.param("id");
 
-  // Try the index first
   const entry = getProjectEntry(id);
-  if (entry) {
-    touchProject(id);
-    const projectDb = openDatabase(entry.db_path, id);
-    const row = projectDb.prepare("SELECT * FROM projects WHERE id = ?").get(id) as
-      | Record<string, unknown>
-      | undefined;
-    if (!row) throw new NotFoundError("Project not found in its database");
-    return c.json({
-      data: {
-        id: row["id"],
-        name: row["name"],
-        description: row["description"],
-        next_task_number: row["next_task_number"],
-        created_at: row["created_at"],
-        updated_at: row["updated_at"],
-        path: entry.path,
-        schema_version: entry.schema_version,
-      },
-    });
-  }
+  if (!entry) throw new NotFoundError("Project not found");
 
-  throw new NotFoundError("Project not found");
+  touchProject(id);
+  return c.json({
+    data: {
+      id: entry.id,
+      name: entry.name,
+      path: entry.path,
+      schema_version: entry.schema_version,
+      last_accessed: entry.last_accessed,
+      created_at: entry.created_at,
+    },
+  });
 });
 
 export default projects;

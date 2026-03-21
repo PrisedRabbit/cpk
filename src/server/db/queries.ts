@@ -717,7 +717,7 @@ export function searchDocs(
 ): Doc[] {
   const db = getDb(projectId);
 
-  // Simple keyword search using LIKE (FTS5 added in Week 2 for better results)
+  // Simple keyword search using LIKE
   let sql = "SELECT * FROM docs WHERE project_id = ? AND (title LIKE ? OR body LIKE ? OR tags LIKE ?)";
   const pattern = `%${query}%`;
   const params: unknown[] = [projectId, pattern, pattern, pattern];

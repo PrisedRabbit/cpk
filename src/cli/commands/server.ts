@@ -67,7 +67,7 @@ serverCommand
       return;
     }
 
-    const port = Number(process.env["CPK_PORT"] ?? process.env["APM_PORT"]) || DEFAULT_PORT;
+    const port = Number(process.env["CPK_PORT"]) || DEFAULT_PORT;
     try {
       const client = new ApiClient(`http://localhost:${port}`);
       const health = await client.health();

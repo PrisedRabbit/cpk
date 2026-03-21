@@ -10,8 +10,8 @@ import { openDatabase, setProjectResolver } from "./db/index.js";
 import { getProjectEntry } from "./db/project-index.js";
 import { createApp } from "./index.js";
 
-const port = Number(process.env["CPK_PORT"] ?? process.env["APM_PORT"]) || DEFAULT_PORT;
-const dataDir = resolveDataDir(process.env["CPK_DATA_DIR"] ?? process.env["APM_DATA_DIR"] ?? DEFAULT_DATA_DIR);
+const port = Number(process.env["CPK_PORT"]) || DEFAULT_PORT;
+const dataDir = resolveDataDir(process.env["CPK_DATA_DIR"] ?? DEFAULT_DATA_DIR);
 
 // Ensure global config directory exists (for index.json, server.pid, server.log)
 if (!existsSync(dataDir)) {
