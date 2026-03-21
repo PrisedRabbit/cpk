@@ -16,16 +16,18 @@ export const DOC_TYPES = ["operational", "decision", "reference", "learning"] as
 export type DocType = (typeof DOC_TYPES)[number];
 
 /**
- * Valid status transitions. Key = current status, value = allowed next statuses.
- * The server enforces these — invalid transitions are rejected with 400.
+ * Valid status transitions.
+ * Permissive — the server is a dumb store, the human is the orchestrator.
+ * Any status can move to any other status. The only constraint: you can't
+ * transition to the same status you're already in.
  */
 export const STATUS_TRANSITIONS: Record<TaskStatus, readonly TaskStatus[]> = {
-  backlog: ["open"],
-  open: ["in-progress", "blocked"],
-  "in-progress": ["done", "review", "blocked", "open"],
-  review: ["done", "in-progress", "open"],
-  blocked: ["open", "in-progress"],
-  done: ["open"],
+  backlog: ["open", "in-progress", "review", "blocked", "done"],
+  open: ["backlog", "in-progress", "review", "blocked", "done"],
+  "in-progress": ["backlog", "open", "review", "blocked", "done"],
+  review: ["backlog", "open", "in-progress", "blocked", "done"],
+  blocked: ["backlog", "open", "in-progress", "review", "done"],
+  done: ["backlog", "open", "in-progress", "review", "blocked"],
 } as const;
 
 export const DEFAULT_PORT = 41920;
