@@ -1,0 +1,142 @@
+# codepakt
+
+CLI-first coordination layer for autonomous AI coding agents.
+
+Two interfaces to the same backend:
+- **CLI** (`cpk`) — for AI agents (~250 tokens per interaction)
+- **Web dashboard** — for humans (kanban board at `http://localhost:41920`)
+
+Dumb server, smart agents. No LLM on the server. Agents do all planning and decomposition. The server stores state and enforces concurrency.
+
+## Install
+
+```bash
+npm i -g codepakt
+```
+
+Requires Node 20+. macOS and Linux only.
+
+## Quick Start
+
+```bash
+# Start the server (daemon, port 41920)
+cpk server start
+
+# Create a project
+cpk init --path ./my-project
+
+# Or create from a PRD (agent reads it, creates tasks)
+cpk init --path ./my-project --prd ./PRD.md
+
+# Add tasks
+cpk task add --title "Set up auth" --epic "Auth" --priority high
+
+# Register an agent
+cpk agent register --name backend-dev --capabilities "typescript,api"
+
+# Agent picks up work (atomic, with capability matching)
+cpk task pickup --agent backend-dev
+
+# Mark done
+cpk task done <task-id> --notes "Implemented JWT auth"
+
+# Open the dashboard
+open http://localhost:41920
+```
+
+## CLI Commands
+
+### Server
+```bash
+cpk server start       # Start daemon (port 41920)
+cpk server stop        # Stop daemon
+cpk server status      # Check if running
+cpk server logs        # Tail server logs
+```
+
+### Projects
+```bash
+cpk init --path <dir>              # Create project
+cpk init --path <dir> --prd <file> # Create from PRD
+```
+
+### Tasks
+```bash
+cpk task add --title "..." [--epic "..." --priority high --capabilities "ts,api"]
+cpk task add --batch tasks.json    # Bulk create
+cpk task list [--epic "Auth"]      # List (with optional epic filter)
+cpk task show <id>                 # Task details
+cpk task pickup [--agent <name>]   # Atomic claim with capability matching
+cpk task done <id> --notes "..."   # Complete
+cpk task block <id> --reason "..." # Mark blocked
+cpk task unblock <id>              # Unblock
+cpk task mine --agent <name>       # My assigned tasks
+```
+
+### Agents
+```bash
+cpk agent register --name <n> [--capabilities "..." --owns "src/api" --provider claude]
+cpk agent list
+cpk agent status <name>
+```
+
+### Knowledge Base
+```bash
+cpk docs write --title "..." --content "..." [--type decision --section architecture]
+cpk docs search "query"
+cpk docs list
+cpk docs read <id>
+```
+
+### Board
+```bash
+cpk board status       # Board health summary
+cpk agents-md generate # Generate AGENTS.md for your project
+```
+
+## Architecture
+
+Single npm package. No Docker required for default setup.
+
+```
+codepakt
+├── CLI        Commander.js, ~250 tokens per interaction
+├── Server     Hono, daemon (fork + detach), port 41920
+├── Dashboard  Vanilla JS kanban, served at / on same server
+├── Database   SQLite via better-sqlite3, WAL mode
+└── API        REST at /api/*
+```
+
+**Key design choices:**
+- Atomic task pickup via `BEGIN IMMEDIATE` transactions — no race conditions
+- Capability matching happens inside the transaction
+- Per-project databases at `.codepakt/data.db` — portable, no shared state
+- Global index at `~/.codepakt/index.json` for project discovery
+- All mutations logged to events table
+
+## Dashboard
+
+The web dashboard serves from the same Hono server at `http://localhost:41920`:
+- Kanban board (open → in-progress → review → done)
+- Blocked tasks section
+- Agent sidebar with status
+- Task detail panel
+- Create task modal
+- Project switcher
+- Dark/light theme
+
+## Development
+
+```bash
+pnpm install
+pnpm dev          # Server with hot reload
+pnpm dev:cli      # CLI in dev mode
+pnpm test         # Run tests
+pnpm typecheck    # Type check
+pnpm lint         # Biome lint
+pnpm build        # Build with tsup
+```
+
+## License
+
+MIT
