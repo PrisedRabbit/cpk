@@ -131,7 +131,7 @@ SQLite at `~/.codepakt/data.db`. Tables: `projects`, `tasks`, `agents`, `events`
 
 No ORM. All queries in `src/server/db/queries.ts` as typed functions using better-sqlite3 directly.
 
-Atomic task pickup uses `BEGIN IMMEDIATE` transactions. Capability matching happens inside the transaction (no race window).
+Atomic task pickup uses `BEGIN IMMEDIATE` transactions. Agent auto-upserted inside the transaction.
 
 ## CLI Commands
 

@@ -28,7 +28,7 @@ function generateAgentsMd(project: Project, agents: Agent[]): string {
   lines.push("");
 
   lines.push("## Agent Protocol");
-  lines.push('1. `export CPK_AGENT=<your-name>`');
+  lines.push("1. Use `--agent <your-name>` on commands (or `export CPK_AGENT=<your-name>`)");
   lines.push("2. `cpk task mine` — check existing work");
   lines.push("3. `cpk task pickup` — claim next available task");
   lines.push("4. Read task.context_refs for relevant docs: `cpk docs read <id>`");
