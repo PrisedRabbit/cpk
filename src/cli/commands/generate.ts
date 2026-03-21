@@ -1,7 +1,7 @@
 import { Command } from "commander";
 import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
-import { PROJECT_CONFIG_DIR } from "../../shared/constants.js";
+import { COORDINATION_VERSION_PREFIX, PROJECT_CONFIG_DIR, VERSION } from "../../shared/constants.js";
 import type { Agent, Project } from "../../shared/types.js";
 import { createClient, handleError, requireProjectId } from "../helpers.js";
 
@@ -11,6 +11,7 @@ import { createClient, handleError, requireProjectId } from "../helpers.js";
 function generateAgentsMd(project: Project, agents: Agent[]): string {
   const lines: string[] = [];
 
+  lines.push(`${COORDINATION_VERSION_PREFIX} ${VERSION} -->`);
   lines.push("# AGENTS.md");
   lines.push("");
   lines.push(`> Project: **${project.name}** — coordinated via [Codepakt](https://codepakt.com)`);
@@ -93,6 +94,7 @@ function generateAgentsMd(project: Project, agents: Agent[]): string {
 function generateClaudeMd(project: Project, agents: Agent[]): string {
   const lines: string[] = [];
 
+  lines.push(`${COORDINATION_VERSION_PREFIX} ${VERSION} -->`);
   lines.push("# Codepakt — Project Coordination");
   lines.push("");
   lines.push(`> Project: **${project.name}** — coordinated via [Codepakt](https://codepakt.com)`);
@@ -106,6 +108,7 @@ function generateClaudeMd(project: Project, agents: Agent[]): string {
   lines.push("Run these at the start of every session:");
   lines.push("```bash");
   lines.push("cpk server status                    # Ensure server is running (start with: cpk server start)");
+  lines.push("cpk generate                         # Update coordination files to latest CLI version");
   lines.push("cpk task mine --agent <your-name>    # Check assigned tasks");
   lines.push("cpk task list                        # All tasks on the board");
   lines.push("cpk board status                     # Board health summary");

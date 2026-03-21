@@ -1,6 +1,9 @@
 /**
  * Shared CLI helpers — output formatting, error handling, client creation.
  */
+import { existsSync, readFileSync } from "node:fs";
+import { join } from "node:path";
+import { COORDINATION_VERSION_PREFIX, PROJECT_CONFIG_DIR, VERSION } from "../shared/constants.js";
 import { ApiClient, ApiClientError } from "./api-client.js";
 import { getAgentName, getProjectId, getServerUrl } from "./config.js";
 
@@ -35,6 +38,27 @@ export function output(data: unknown, human?: boolean): void {
   } else {
     // Compact JSON for agent consumption
     console.log(JSON.stringify(data));
+  }
+}
+
+/**
+ * Check if .codepakt/CLAUDE.md version stamp matches the installed CLI version.
+ * Prints a warning to stderr if stale. Non-blocking.
+ */
+export function warnIfStaleCoordinationFiles(): void {
+  try {
+    const claudePath = join(process.cwd(), PROJECT_CONFIG_DIR, "CLAUDE.md");
+    if (!existsSync(claudePath)) return;
+
+    const firstLine = readFileSync(claudePath, "utf-8").split("\n")[0] ?? "";
+    if (!firstLine.startsWith(COORDINATION_VERSION_PREFIX)) return;
+
+    const fileVersion = firstLine.replace(COORDINATION_VERSION_PREFIX, "").replace("-->", "").trim();
+    if (fileVersion !== VERSION) {
+      console.error(`⚠ Coordination files outdated (v${fileVersion} → v${VERSION}). Run: cpk generate`);
+    }
+  } catch {
+    // Don't block on check failures
   }
 }
 

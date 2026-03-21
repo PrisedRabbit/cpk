@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 
 import { Command } from "commander";
+import { VERSION } from "../shared/constants.js";
 import { agentCommand } from "./commands/agent.js";
 import { agentsMdCommand } from "./commands/agents-md.js";
 import { boardCommand } from "./commands/board.js";
@@ -10,13 +11,17 @@ import { generateCommand } from "./commands/generate.js";
 import { initCommand } from "./commands/init.js";
 import { serverCommand } from "./commands/server.js";
 import { taskCommand } from "./commands/task.js";
+import { warnIfStaleCoordinationFiles } from "./helpers.js";
+
+// Check for stale coordination files before running any command
+warnIfStaleCoordinationFiles();
 
 const program = new Command();
 
 program
   .name("cpk")
   .description("Codepakt — CLI-first coordination layer for AI coding agents")
-  .version("0.1.0");
+  .version(VERSION);
 
 program.addCommand(serverCommand);
 program.addCommand(initCommand);

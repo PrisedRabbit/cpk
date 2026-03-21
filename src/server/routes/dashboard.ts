@@ -231,6 +231,14 @@ body { font-family: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Robo
   </div>
 </div>
 
+<!-- STALE WARNING BANNER -->
+<div id="stale-banner" style="display:none;background:rgba(210,153,34,0.15);border-bottom:1px solid rgba(210,153,34,0.3);padding:6px 20px;font-size:12px;color:var(--status-wip);display:none;align-items:center;gap:8px">
+  <span>&#9888;</span>
+  <span id="stale-msg"></span>
+  <code class="mono" style="font-size:11px;background:var(--surface);padding:2px 6px;border-radius:3px">cpk generate</code>
+  <button onclick="document.getElementById('stale-banner').style.display='none'" style="margin-left:auto;background:none;border:none;color:var(--text-muted);cursor:pointer;font-size:14px">&#x2715;</button>
+</div>
+
 <!-- MAIN LAYOUT -->
 <div class="main">
   <div class="board-area">
@@ -388,6 +396,7 @@ async function refresh() {
     renderBoard(tasks, board);
     renderAgents(agents);
     renderStats(board);
+    renderCoordinationWarning(board.coordination);
     lastFetch = Date.now();
     updateRefreshIndicator();
     if (selectedTask) {
@@ -516,6 +525,19 @@ function renderStats(board) {
   stats.innerHTML = items.map(i =>
     '<span class="stat"><span class="dot" style="background:' + i.color + '"></span>' + i.count + ' ' + i.label + '</span>'
   ).join('');
+}
+
+// ===== COORDINATION WARNING =====
+function renderCoordinationWarning(coordination) {
+  const banner = document.getElementById('stale-banner');
+  const msg = document.getElementById('stale-msg');
+  if (!coordination || !coordination.stale) {
+    banner.style.display = 'none';
+    return;
+  }
+  const from = coordination.file_version || 'unknown';
+  msg.textContent = 'Coordination files outdated (v' + from + ' → v' + coordination.cli_version + '). Run:';
+  banner.style.display = 'flex';
 }
 
 // ===== DETAIL PANEL =====
