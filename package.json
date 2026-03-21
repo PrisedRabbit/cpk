@@ -19,11 +19,11 @@
   },
   "repository": {
     "type": "git",
-    "url": "https://github.com/codepakt/cli.git"
+    "url": "https://github.com/codepakt/cpk.git"
   },
   "homepage": "https://codepakt.com",
   "bugs": {
-    "url": "https://github.com/codepakt/cli/issues"
+    "url": "https://github.com/codepakt/cpk/issues"
   },
   "engines": {
     "node": ">=20.0.0"

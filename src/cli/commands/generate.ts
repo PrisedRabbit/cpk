@@ -6,7 +6,7 @@ import { COORDINATION_VERSION_PREFIX, PROJECT_CONFIG_DIR, VERSION } from "../../
 import type { Agent } from "../../shared/types.js";
 import { createClient, handleError, requireProjectId } from "../helpers.js";
 
-const TEMPLATE_BASE_URL = "https://raw.githubusercontent.com/codepakt/cli/main/templates";
+const TEMPLATE_BASE_URL = "https://raw.githubusercontent.com/codepakt/cpk/main/templates";
 
 /**
  * Fetch a template from GitHub. Falls back to bundled template on failure.
