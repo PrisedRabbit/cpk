@@ -48,7 +48,12 @@ function generateAgentsMd(project: Project, agents: Agent[]): string {
   lines.push('cpk task add --title "Fix bug" --priority P0');
   lines.push('cpk task add --title "Feature" --priority P1 --epic "Auth" --depends-on T-001');
   lines.push("");
-  lines.push("# 8. Other useful commands");
+  lines.push("# 8. Update any field directly");
+  lines.push("cpk task update T-001 --status open   # Change status");
+  lines.push("cpk task update T-001 --priority P0   # Change priority");
+  lines.push("cpk task update T-001 --assignee dev  # Reassign");
+  lines.push("");
+  lines.push("# 9. Other useful commands");
   lines.push("cpk task list                        # All tasks");
   lines.push("cpk task list --status open           # Filter by status");
   lines.push("cpk task unblock T-001               # Remove block");
@@ -136,6 +141,16 @@ function generateClaudeMd(project: Project, agents: Agent[]): string {
   lines.push('cpk task done T-001 --agent <name> --notes "what you did"  # Complete');
   lines.push('cpk task block T-001 --agent <name> --reason "why"         # Block');
   lines.push("cpk task unblock T-001               # Remove block, return to open");
+  lines.push("```");
+  lines.push("");
+
+  lines.push("### Update Tasks (change any field)");
+  lines.push("```bash");
+  lines.push("cpk task update T-001 --status open   # Change status directly");
+  lines.push("cpk task update T-001 --priority P0   # Change priority");
+  lines.push("cpk task update T-001 --assignee claude  # Reassign");
+  lines.push('cpk task update T-001 --epic "Auth"   # Set epic');
+  lines.push("# Flags: --status, --priority, --assignee, --epic, --title, --description, --verify");
   lines.push("```");
   lines.push("");
 

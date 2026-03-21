@@ -23,9 +23,9 @@ export const STATUS_TRANSITIONS: Record<TaskStatus, readonly TaskStatus[]> = {
   backlog: ["open"],
   open: ["in-progress", "blocked"],
   "in-progress": ["done", "review", "blocked", "open"],
-  review: ["done", "in-progress"],
-  blocked: ["open"],
-  done: [],
+  review: ["done", "in-progress", "open"],
+  blocked: ["open", "in-progress"],
+  done: ["open"],
 } as const;
 
 export const DEFAULT_PORT = 41920;
