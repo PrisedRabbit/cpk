@@ -48,10 +48,12 @@ open http://localhost:41920
 
 ### Server
 ```bash
-cpk server start       # Start daemon (port 41920)
-cpk server stop        # Stop daemon
-cpk server status      # Check if running
-cpk server logs        # Tail server logs
+cpk server start         # Start daemon (port 41920)
+cpk server stop          # Stop daemon
+cpk server status        # Check if running
+cpk server logs          # Last 50 lines of server log
+cpk server logs -f       # Follow logs in real time
+cpk server logs -n 200   # Last 200 lines
 ```
 
 ### Projects
@@ -113,6 +115,16 @@ codepakt
 - Per-project databases at `.codepakt/data.db` — portable, no shared state
 - Global index at `~/.codepakt/index.json` for project discovery
 - All mutations logged to events table
+
+**File locations:**
+
+| File | Purpose |
+|------|---------|
+| `~/.codepakt/index.json` | Global project index |
+| `~/.codepakt/server.pid` | Daemon PID file |
+| `~/.codepakt/server.log` | Server logs (`cpk server logs` to view) |
+| `<project>/.codepakt/data.db` | Per-project SQLite database |
+| `<project>/.codepakt/config.json` | Project CLI config (server URL, project ID) |
 
 ## Dashboard
 
