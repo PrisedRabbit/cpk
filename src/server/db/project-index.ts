@@ -87,16 +87,28 @@ export function registerProject(
   const dbPath = join(projectDir, PROJECT_CONFIG_DIR, DB_FILE);
   const now = new Date().toISOString();
 
-  // Check if already registered
-  const existing = index.projects.find((p) => p.id === id);
-  if (existing) {
-    existing.name = name;
-    existing.path = projectDir;
-    existing.db_path = dbPath;
-    existing.schema_version = schemaVersion;
-    existing.last_accessed = now;
+  // Check if already registered — by path (same directory = same project)
+  const existingByPath = index.projects.find((p) => p.path === projectDir);
+  if (existingByPath) {
+    existingByPath.id = id;
+    existingByPath.name = name;
+    existingByPath.db_path = dbPath;
+    existingByPath.schema_version = schemaVersion;
+    existingByPath.last_accessed = now;
     saveIndex(index);
-    return existing;
+    return existingByPath;
+  }
+
+  // Also check by id (shouldn't happen, but defensive)
+  const existingById = index.projects.find((p) => p.id === id);
+  if (existingById) {
+    existingById.name = name;
+    existingById.path = projectDir;
+    existingById.db_path = dbPath;
+    existingById.schema_version = schemaVersion;
+    existingById.last_accessed = now;
+    saveIndex(index);
+    return existingById;
   }
 
   const entry: ProjectIndexEntry = {

@@ -614,7 +614,7 @@ export function getAgent(projectId: string, name: string): Agent | undefined {
 export function listAgents(projectId: string): Agent[] {
   const db = getDb(projectId);
   const rows = db
-    .prepare("SELECT * FROM agents WHERE project_id = ? ORDER BY created_at ASC")
+    .prepare("SELECT * FROM agents WHERE project_id = ? ORDER BY last_seen DESC")
     .all(projectId) as Record<string, unknown>[];
   return rows.map(mapAgent);
 }

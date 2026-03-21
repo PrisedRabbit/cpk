@@ -11,7 +11,7 @@ import Database from "better-sqlite3";
 import { existsSync, mkdirSync } from "node:fs";
 import { dirname } from "node:path";
 
-export const SCHEMA_VERSION = 1;
+export const SCHEMA_VERSION = 2;
 
 const SCHEMA_SQL = `
 -- schema_version
@@ -100,6 +100,31 @@ CREATE INDEX IF NOT EXISTS idx_docs_project_type ON docs(project_id, type);
 `;
 
 /**
+ * Run schema migrations from oldVersion to SCHEMA_VERSION.
+ * Pre-release (v0.1): destructive migrations are acceptable.
+ */
+function migrateSchema(db: Database.Database, oldVersion: number): void {
+  if (oldVersion < 2) {
+    // v1 → v2: Simplified agents table (removed role, capabilities, owns, cannot, provider, created_at; added last_seen)
+    db.exec(`
+      DROP TABLE IF EXISTS agents;
+      CREATE TABLE IF NOT EXISTS agents (
+          id TEXT PRIMARY KEY,
+          project_id TEXT NOT NULL,
+          name TEXT NOT NULL,
+          status TEXT NOT NULL DEFAULT 'idle'
+              CHECK (status IN ('idle','working')),
+          current_task_id TEXT,
+          last_seen TEXT NOT NULL DEFAULT (datetime('now')),
+          UNIQUE(project_id, name)
+      );
+    `);
+  }
+
+  db.prepare("UPDATE schema_version SET version = ?").run(SCHEMA_VERSION);
+}
+
+/**
  * Connection pool: projectId → Database instance.
  * For backward compat and tests, a "default" key is used when no projectId is specified.
  */
@@ -134,12 +159,14 @@ export function openDatabase(dbPath: string, key?: string): Database.Database {
   // Apply schema (idempotent via IF NOT EXISTS)
   db.exec(SCHEMA_SQL);
 
-  // Set schema version if not already set
+  // Check schema version and migrate if needed
   const versionRow = db.prepare("SELECT version FROM schema_version LIMIT 1").get() as
     | { version: number }
     | undefined;
   if (!versionRow) {
     db.prepare("INSERT INTO schema_version (version) VALUES (?)").run(SCHEMA_VERSION);
+  } else if (versionRow.version < SCHEMA_VERSION) {
+    migrateSchema(db, versionRow.version);
   }
 
   pool.set(poolKey, db);
