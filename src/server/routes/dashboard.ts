@@ -80,10 +80,10 @@ body { font-family: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Robo
 /* ===== LAYOUT ===== */
 .main { display: flex; flex: 1; overflow: hidden; }
 .board-area { flex: 1; display: flex; flex-direction: column; overflow: hidden; padding: 16px; gap: 12px; }
-.columns { display: flex; flex: 1; gap: 16px; overflow-x: auto; min-height: 0; }
+.columns { display: flex; flex: 1; gap: 12px; overflow-x: hidden; min-height: 0; }
 
 /* ===== COLUMN ===== */
-.column { min-width: 260px; flex: 1; display: flex; flex-direction: column; max-height: 100%; }
+.column { min-width: 0; flex: 1; display: flex; flex-direction: column; max-height: 100%; overflow: hidden; }
 .column-header { display: flex; align-items: center; justify-content: space-between;
   padding: 0 4px 10px; }
 .column-title { font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.8px; }
@@ -114,10 +114,21 @@ body { font-family: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Robo
 
 
 /* ===== AGENT SIDEBAR ===== */
-.sidebar { width: 240px; border-right: 1px solid var(--border-subtle); display: flex; flex-direction: column;
-  padding: 16px; overflow-y: auto; flex-shrink: 0; order: -1; }
+.sidebar { border-right: 1px solid var(--border-subtle); display: flex; flex-direction: column;
+  overflow-y: auto; flex-shrink: 0; order: -1; transition: width 0.2s; }
+.sidebar.collapsed { width: 40px; padding: 12px 0; align-items: center; cursor: pointer; }
+.sidebar.expanded { width: 240px; padding: 16px; }
+.sidebar-toggle { background: none; border: none; color: var(--text-muted); cursor: pointer;
+  font-size: 14px; padding: 4px; display: flex; align-items: center; justify-content: center; }
+.sidebar-toggle:hover { color: var(--text); }
+.sidebar.collapsed .sidebar-toggle { font-size: 16px; }
+.sidebar-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; }
 .sidebar-title { font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.8px;
-  color: var(--text-muted); margin-bottom: 12px; }
+  color: var(--text-muted); }
+.sidebar.collapsed .sidebar-body { display: none; }
+.sidebar.collapsed .sidebar-header { display: none; }
+.sidebar-badge { font-size: 9px; background: var(--surface); color: var(--text-muted); padding: 1px 5px;
+  border-radius: 3px; margin-top: 6px; }
 .agent-card { background: var(--surface); padding: 10px; border-radius: 4px; margin-bottom: 8px; }
 .agent-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px; }
 .agent-name { font-size: 12px; font-weight: 600; display: flex; align-items: center; gap: 6px; }
@@ -233,9 +244,14 @@ body { font-family: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Robo
   </div>
 
   <!-- AGENT SIDEBAR -->
-  <div class="sidebar">
-    <div class="sidebar-title">Agents</div>
-    <div id="agent-list"></div>
+  <div class="sidebar collapsed" id="agent-sidebar">
+    <button class="sidebar-toggle" onclick="toggleSidebar()" title="Agents">&#9776;</button>
+    <span class="sidebar-badge" id="agent-badge">0</span>
+    <div class="sidebar-header">
+      <span class="sidebar-title">Agents</span>
+      <button class="sidebar-toggle" onclick="toggleSidebar()" title="Collapse">&lsaquo;</button>
+    </div>
+    <div class="sidebar-body" id="agent-list"></div>
   </div>
 </div>
 
@@ -467,6 +483,7 @@ function renderCard(t) {
 // ===== RENDER AGENTS =====
 function renderAgents(agents) {
   const list = document.getElementById('agent-list');
+  document.getElementById('agent-badge').textContent = agents.length;
   if (agents.length === 0) {
     list.innerHTML = '<div style="color:var(--text-muted);font-size:11px;text-align:center;padding:20px">No agents yet.<br>Agents appear when they pick up tasks.</div>';
     return;
@@ -610,6 +627,21 @@ async function handleCreateTask(e) {
     closeCreateModal();
     await refresh();
   } catch(e) { alert(e.message || 'Failed to create task'); }
+}
+
+// ===== SIDEBAR TOGGLE =====
+function toggleSidebar() {
+  const el = document.getElementById('agent-sidebar');
+  el.classList.toggle('collapsed');
+  el.classList.toggle('expanded');
+  localStorage.setItem('cpk-sidebar', el.classList.contains('expanded') ? 'expanded' : 'collapsed');
+}
+// Restore saved sidebar state
+const savedSidebar = localStorage.getItem('cpk-sidebar');
+if (savedSidebar === 'expanded') {
+  const sb = document.getElementById('agent-sidebar');
+  sb.classList.remove('collapsed');
+  sb.classList.add('expanded');
 }
 
 // ===== THEME =====
