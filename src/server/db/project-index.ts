@@ -10,13 +10,13 @@
  */
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
-import { DEFAULT_DATA_DIR, DB_FILE, PROJECT_CONFIG_DIR, resolveDataDir } from "../../shared/constants.js";
+import { getConfiguredDataDir, resolveDataDir } from "../../shared/constants.js";
 
 export interface ProjectIndexEntry {
   id: string;
   name: string;
-  path: string; // absolute path to project root (where .codepakt/ lives)
-  db_path: string; // absolute path to .codepakt/data.db
+  path: string | null; // absolute path to project root (where .codepakt/ lives), null for hosted projects
+  db_path: string; // absolute path to SQLite DB
   schema_version: number;
   last_accessed: string; // ISO timestamp
   created_at: string;
@@ -31,16 +31,12 @@ const INDEX_FILE = "index.json";
 const INDEX_VERSION = 1;
 
 function getIndexPath(): string {
-  const dataDir = resolveDataDir(
-    process.env["CPK_DATA_DIR"] ?? DEFAULT_DATA_DIR,
-  );
+  const dataDir = resolveDataDir(getConfiguredDataDir());
   return join(dataDir, INDEX_FILE);
 }
 
 function ensureGlobalDir(): string {
-  const dataDir = resolveDataDir(
-    process.env["CPK_DATA_DIR"] ?? DEFAULT_DATA_DIR,
-  );
+  const dataDir = resolveDataDir(getConfiguredDataDir());
   if (!existsSync(dataDir)) {
     mkdirSync(dataDir, { recursive: true });
   }
@@ -69,7 +65,7 @@ export function loadIndex(): ProjectIndex {
 export function saveIndex(index: ProjectIndex): void {
   ensureGlobalDir();
   const indexPath = getIndexPath();
-  writeFileSync(indexPath, JSON.stringify(index, null, 2) + "\n");
+  writeFileSync(indexPath, `${JSON.stringify(index, null, 2)}\n`);
 }
 
 /**
@@ -79,16 +75,17 @@ export function saveIndex(index: ProjectIndex): void {
 export function registerProject(
   id: string,
   name: string,
-  projectDir: string,
+  projectPath: string | null,
+  dbPath: string,
   schemaVersion: number,
 ): ProjectIndexEntry {
   const index = loadIndex();
-
-  const dbPath = join(projectDir, PROJECT_CONFIG_DIR, DB_FILE);
   const now = new Date().toISOString();
 
-  // Check if already registered — by path (same directory = same project)
-  const existingByPath = index.projects.find((p) => p.path === projectDir);
+  // Check if already registered by local path when available
+  const existingByPath = projectPath
+    ? index.projects.find((p) => p.path === projectPath)
+    : undefined;
   if (existingByPath) {
     existingByPath.id = id;
     existingByPath.name = name;
@@ -103,7 +100,7 @@ export function registerProject(
   const existingById = index.projects.find((p) => p.id === id);
   if (existingById) {
     existingById.name = name;
-    existingById.path = projectDir;
+    existingById.path = projectPath;
     existingById.db_path = dbPath;
     existingById.schema_version = schemaVersion;
     existingById.last_accessed = now;
@@ -114,7 +111,7 @@ export function registerProject(
   const entry: ProjectIndexEntry = {
     id,
     name,
-    path: projectDir,
+    path: projectPath,
     db_path: dbPath,
     schema_version: schemaVersion,
     last_accessed: now,
@@ -136,6 +133,20 @@ export function touchProject(id: string): void {
     entry.last_accessed = new Date().toISOString();
     saveIndex(index);
   }
+}
+
+export function updateProjectEntry(
+  id: string,
+  updates: Partial<Pick<ProjectIndexEntry, "path" | "db_path" | "name" | "schema_version">>,
+): ProjectIndexEntry | undefined {
+  const index = loadIndex();
+  const entry = index.projects.find((p) => p.id === id);
+  if (!entry) return undefined;
+
+  Object.assign(entry, updates);
+  entry.last_accessed = new Date().toISOString();
+  saveIndex(index);
+  return entry;
 }
 
 /**

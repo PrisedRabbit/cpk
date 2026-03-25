@@ -6,14 +6,21 @@ import { fork } from "node:child_process";
 import { existsSync, mkdirSync, openSync, readFileSync, unlinkSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
-import { DEFAULT_DATA_DIR, DEFAULT_PORT, LOG_FILE, PID_FILE, resolveDataDir } from "../shared/constants.js";
+import {
+  DEFAULT_DATA_DIR,
+  DEFAULT_PORT,
+  LOG_FILE,
+  PID_FILE,
+  getConfiguredDataDir,
+  resolveDataDir,
+} from "../shared/constants.js";
 
-function getDataDir(): string {
-  return resolveDataDir(process.env["CPK_DATA_DIR"] ?? DEFAULT_DATA_DIR);
+export function getDaemonDataDir(): string {
+  return resolveDataDir(getConfiguredDataDir() ?? DEFAULT_DATA_DIR);
 }
 
 function getPidPath(): string {
-  return join(getDataDir(), PID_FILE);
+  return join(getDaemonDataDir(), PID_FILE);
 }
 
 /**
@@ -65,12 +72,12 @@ export function isDaemonRunning(): { running: boolean; pid?: number } {
  */
 export function startDaemon(options?: { port?: number; dataDir?: string }): number {
   const existing = isDaemonRunning();
-  if (existing.running) {
-    return existing.pid!;
+  if (existing.running && existing.pid !== undefined) {
+    return existing.pid;
   }
 
-  const dataDir = options?.dataDir ?? getDataDir();
-  const port = options?.port ?? (Number(process.env["CPK_PORT"]) || DEFAULT_PORT);
+  const dataDir = options?.dataDir ?? getDaemonDataDir();
+  const port = options?.port ?? (Number(process.env.CPK_PORT) || DEFAULT_PORT);
 
   // Ensure data directory exists
   if (!existsSync(dataDir)) {
@@ -123,7 +130,11 @@ export function startDaemon(options?: { port?: number; dataDir?: string }): numb
   child.unref();
   child.disconnect();
 
-  return child.pid!;
+  if (child.pid === undefined) {
+    throw new Error("Failed to start daemon: child process did not expose a PID");
+  }
+
+  return child.pid;
 }
 
 /**

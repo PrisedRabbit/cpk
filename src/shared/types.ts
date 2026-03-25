@@ -3,6 +3,7 @@ import type { DocType, Priority, TaskStatus } from "./constants.js";
 import type {
   DocCreateSchema,
   ProjectCreateSchema,
+  ProjectUpdateSchema,
   TaskCreateSchema,
   TaskUpdateSchema,
 } from "./schemas.js";
@@ -10,6 +11,7 @@ import type {
 // --- Inferred input types ---
 
 export type ProjectCreateInput = z.infer<typeof ProjectCreateSchema>;
+export type ProjectUpdateInput = z.infer<typeof ProjectUpdateSchema>;
 export type TaskCreateInput = z.infer<typeof TaskCreateSchema>;
 export type TaskUpdateInput = z.infer<typeof TaskUpdateSchema>;
 export type DocCreateInput = z.infer<typeof DocCreateSchema>;
@@ -105,4 +107,5 @@ export interface BoardStatus {
 export interface ProjectConfig {
   url: string;
   project_id: string;
+  db_dir?: string;
 }

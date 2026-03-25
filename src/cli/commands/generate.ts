@@ -1,8 +1,12 @@
-import { Command } from "commander";
 import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
-import { COORDINATION_VERSION_PREFIX, PROJECT_CONFIG_DIR, VERSION } from "../../shared/constants.js";
+import { Command } from "commander";
+import {
+  COORDINATION_VERSION_PREFIX,
+  PROJECT_CONFIG_DIR,
+  VERSION,
+} from "../../shared/constants.js";
 import type { Agent } from "../../shared/types.js";
 import { createClient, handleError, requireProjectId } from "../helpers.js";
 
@@ -93,7 +97,7 @@ function writeGeneratedFile(
   } else if (filename === "CLAUDE.md") {
     // For CLAUDE.md: prepend @import if not already present
     const existing = readFileSync(rootPath, "utf-8");
-    const importLine = `@import .codepakt/CLAUDE.md`;
+    const importLine = "@import .codepakt/CLAUDE.md";
     if (!existing.includes(importLine)) {
       writeFileSync(rootPath, `${importLine}\n\n${existing}`, "utf-8");
       rootUpdated = true;
@@ -109,7 +113,7 @@ function writeGeneratedFile(
  */
 function updateGitignore(projectDir: string): void {
   const gitignorePath = join(projectDir, PROJECT_CONFIG_DIR, ".gitignore");
-  const desired = `config.json\n*.db\n*.db-wal\n*.db-shm\n`;
+  const desired = "config.json\n*.db\n*.db-wal\n*.db-shm\n";
 
   if (existsSync(gitignorePath)) {
     const current = readFileSync(gitignorePath, "utf-8");
@@ -127,10 +131,7 @@ export async function runGenerate(projectDir?: string): Promise<void> {
   const client = createClient();
   const dir = projectDir ?? process.cwd();
 
-  const [projects, agents] = await Promise.all([
-    client.listProjects(),
-    client.listAgents(),
-  ]);
+  const [projects, agents] = await Promise.all([client.listProjects(), client.listAgents()]);
 
   if (projects.length === 0) {
     console.error("No projects found. Run `cpk init` first.");
@@ -160,28 +161,29 @@ export async function runGenerate(projectDir?: string): Promise<void> {
 
   // Generate and write AGENTS.md
   const agentsContent = interpolate(agentsTmpl, vars);
-  const agentsRootContent = `<!-- This project uses Codepakt for task coordination. -->\n<!-- See .codepakt/AGENTS.md for the agent protocol and roster. -->\n`;
+  const agentsRootContent =
+    "<!-- This project uses Codepakt for task coordination. -->\n<!-- See .codepakt/AGENTS.md for the agent protocol and roster. -->\n";
   const agentsResult = writeGeneratedFile(dir, "AGENTS.md", agentsContent, agentsRootContent);
 
-  console.log(`  .codepakt/AGENTS.md written`);
+  console.log("  .codepakt/AGENTS.md written");
   if (agentsResult.rootCreated) {
-    console.log(`  AGENTS.md created (references .codepakt/AGENTS.md)`);
+    console.log("  AGENTS.md created (references .codepakt/AGENTS.md)");
   } else if (agentsResult.rootExists) {
-    console.log(`  AGENTS.md exists — not modified (codepakt manages .codepakt/AGENTS.md)`);
+    console.log("  AGENTS.md exists — not modified (codepakt manages .codepakt/AGENTS.md)");
   }
 
   // Generate and write CLAUDE.md
   const claudeContent = interpolate(claudeTmpl, vars);
-  const claudeRootContent = `@import .codepakt/CLAUDE.md\n`;
+  const claudeRootContent = "@import .codepakt/CLAUDE.md\n";
   const claudeResult = writeGeneratedFile(dir, "CLAUDE.md", claudeContent, claudeRootContent);
 
-  console.log(`  .codepakt/CLAUDE.md written`);
+  console.log("  .codepakt/CLAUDE.md written");
   if (claudeResult.rootCreated) {
-    console.log(`  CLAUDE.md created (imports .codepakt/CLAUDE.md)`);
+    console.log("  CLAUDE.md created (imports .codepakt/CLAUDE.md)");
   } else if (claudeResult.rootUpdated) {
-    console.log(`  CLAUDE.md updated — prepended @import .codepakt/CLAUDE.md`);
+    console.log("  CLAUDE.md updated — prepended @import .codepakt/CLAUDE.md");
   } else if (claudeResult.rootExists) {
-    console.log(`  CLAUDE.md already imports .codepakt/CLAUDE.md`);
+    console.log("  CLAUDE.md already imports .codepakt/CLAUDE.md");
   }
 }
 

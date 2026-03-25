@@ -35,65 +35,65 @@ function boolFromInt(val: unknown): boolean {
 
 function mapTask(row: Record<string, unknown>): Task {
   return {
-    id: row["id"] as string,
-    project_id: row["project_id"] as string,
-    task_number: row["task_number"] as string,
-    title: row["title"] as string,
-    description: (row["description"] as string) ?? null,
-    status: row["status"] as Task["status"],
-    assignee: (row["assignee"] as string) ?? null,
-    priority: row["priority"] as Task["priority"],
-    epic: (row["epic"] as string) ?? null,
-    capabilities: parseJsonArray(row["capabilities"]),
-    depends_on: parseJsonArray(row["depends_on"]),
-    deps_met: boolFromInt(row["deps_met"]),
-    acceptance_criteria: parseJsonArray(row["acceptance_criteria"]),
-    context_refs: parseJsonArray(row["context_refs"]),
-    verify: (row["verify"] as string) ?? null,
-    notes: parseJsonArray(row["notes"]),
-    blocker_reason: (row["blocker_reason"] as string) ?? null,
-    created_at: row["created_at"] as string,
-    updated_at: row["updated_at"] as string,
-    started_at: (row["started_at"] as string) ?? null,
-    completed_at: (row["completed_at"] as string) ?? null,
+    id: row.id as string,
+    project_id: row.project_id as string,
+    task_number: row.task_number as string,
+    title: row.title as string,
+    description: (row.description as string) ?? null,
+    status: row.status as Task["status"],
+    assignee: (row.assignee as string) ?? null,
+    priority: row.priority as Task["priority"],
+    epic: (row.epic as string) ?? null,
+    capabilities: parseJsonArray(row.capabilities),
+    depends_on: parseJsonArray(row.depends_on),
+    deps_met: boolFromInt(row.deps_met),
+    acceptance_criteria: parseJsonArray(row.acceptance_criteria),
+    context_refs: parseJsonArray(row.context_refs),
+    verify: (row.verify as string) ?? null,
+    notes: parseJsonArray(row.notes),
+    blocker_reason: (row.blocker_reason as string) ?? null,
+    created_at: row.created_at as string,
+    updated_at: row.updated_at as string,
+    started_at: (row.started_at as string) ?? null,
+    completed_at: (row.completed_at as string) ?? null,
   };
 }
 
 function mapAgent(row: Record<string, unknown>): Agent {
   return {
-    id: row["id"] as string,
-    project_id: row["project_id"] as string,
-    name: row["name"] as string,
-    status: row["status"] as string,
-    current_task_id: (row["current_task_id"] as string) ?? null,
-    last_seen: row["last_seen"] as string,
+    id: row.id as string,
+    project_id: row.project_id as string,
+    name: row.name as string,
+    status: row.status as string,
+    current_task_id: (row.current_task_id as string) ?? null,
+    last_seen: row.last_seen as string,
   };
 }
 
 function mapEvent(row: Record<string, unknown>): Event {
   return {
-    id: row["id"] as string,
-    project_id: row["project_id"] as string,
-    task_id: (row["task_id"] as string) ?? null,
-    agent: (row["agent"] as string) ?? null,
-    action: row["action"] as string,
-    detail: parseJsonObject(row["detail"]),
-    created_at: row["created_at"] as string,
+    id: row.id as string,
+    project_id: row.project_id as string,
+    task_id: (row.task_id as string) ?? null,
+    agent: (row.agent as string) ?? null,
+    action: row.action as string,
+    detail: parseJsonObject(row.detail),
+    created_at: row.created_at as string,
   };
 }
 
 function mapDoc(row: Record<string, unknown>): Doc {
   return {
-    id: row["id"] as string,
-    project_id: row["project_id"] as string,
-    type: row["type"] as Doc["type"],
-    title: row["title"] as string,
-    body: row["body"] as string,
-    section: (row["section"] as string) ?? null,
-    tags: parseJsonArray(row["tags"]),
-    author: (row["author"] as string) ?? null,
-    created_at: row["created_at"] as string,
-    updated_at: row["updated_at"] as string,
+    id: row.id as string,
+    project_id: row.project_id as string,
+    type: row.type as Doc["type"],
+    title: row.title as string,
+    body: row.body as string,
+    section: (row.section as string) ?? null,
+    tags: parseJsonArray(row.tags),
+    author: (row.author as string) ?? null,
+    created_at: row.created_at as string,
+    updated_at: row.updated_at as string,
   };
 }
 
@@ -112,7 +112,7 @@ export function getMetadata(projectId: string, key: string): string | undefined 
 export function setMetadata(projectId: string, key: string, value: string): void {
   const db = getDb(projectId);
   db.prepare(
-    "INSERT INTO metadata (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value"
+    "INSERT INTO metadata (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value",
   ).run(key, value);
 }
 
@@ -152,7 +152,7 @@ export function createTask(projectId: string, input: TaskCreateInput): Task {
     const id = randomUUID();
     db.prepare(
       `INSERT INTO tasks (id, project_id, task_number, title, description, status, priority, epic, capabilities, depends_on, deps_met, acceptance_criteria, context_refs, verify)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     ).run(
       id,
       projectId,
@@ -167,11 +167,16 @@ export function createTask(projectId: string, input: TaskCreateInput): Task {
       depsMet ? 1 : 0,
       JSON.stringify(input.acceptance_criteria ?? []),
       JSON.stringify(input.context_refs ?? []),
-      input.verify ?? null
+      input.verify ?? null,
     );
 
     // Log event
-    logEventInternal(projectId, "task_created", { task_number: taskNumber, title: input.title }, id);
+    logEventInternal(
+      projectId,
+      "task_created",
+      { task_number: taskNumber, title: input.title },
+      id,
+    );
 
     return db.prepare("SELECT * FROM tasks WHERE id = ?").get(id) as Record<string, unknown>;
   })();
@@ -209,7 +214,7 @@ export function getTask(projectId: string, idOrNumber: string): Task | undefined
 
 export function listTasks(
   projectId: string,
-  filters?: { status?: string; assignee?: string; epic?: string; limit?: number }
+  filters?: { status?: string; assignee?: string; epic?: string; limit?: number },
 ): Task[] {
   const db = getDb(projectId);
   let sql = "SELECT * FROM tasks WHERE project_id = ?";
@@ -247,7 +252,7 @@ export function getAgentTasks(projectId: string, agentName: string): Task[] {
   const rows = db
     .prepare(
       `SELECT * FROM tasks WHERE project_id = ? AND assignee = ? AND status IN ('in-progress', 'review')
-       ORDER BY CASE priority WHEN 'P0' THEN 0 WHEN 'P1' THEN 1 ELSE 2 END, created_at ASC`
+       ORDER BY CASE priority WHEN 'P0' THEN 0 WHEN 'P1' THEN 1 ELSE 2 END, created_at ASC`,
     )
     .all(projectId, agentName) as Record<string, unknown>[];
   return rows.map(mapTask);
@@ -262,7 +267,7 @@ function upsertAgent(projectId: string, name: string): void {
   db.prepare(
     `INSERT INTO agents (id, project_id, name, last_seen)
      VALUES (?, ?, ?, datetime('now'))
-     ON CONFLICT(project_id, name) DO UPDATE SET last_seen = datetime('now')`
+     ON CONFLICT(project_id, name) DO UPDATE SET last_seen = datetime('now')`,
   ).run(randomUUID(), projectId, name);
 }
 
@@ -284,21 +289,21 @@ export function pickupTask(projectId: string, agentName: string): Task | undefin
            AND status = 'open'
            AND deps_met = 1
          ORDER BY CASE priority WHEN 'P0' THEN 0 WHEN 'P1' THEN 1 ELSE 2 END, created_at ASC
-         LIMIT 1`
+         LIMIT 1`,
       )
       .get(projectId) as Record<string, unknown> | undefined;
 
     if (!match) return undefined;
 
-    const taskId = match["id"] as string;
+    const taskId = match.id as string;
 
     db.prepare(
       `UPDATE tasks SET status = 'in-progress', assignee = ?, started_at = datetime('now'), updated_at = datetime('now')
-       WHERE id = ?`
+       WHERE id = ?`,
     ).run(agentName, taskId);
 
     db.prepare(
-      `UPDATE agents SET status = 'working', current_task_id = ? WHERE project_id = ? AND name = ?`
+      `UPDATE agents SET status = 'working', current_task_id = ? WHERE project_id = ? AND name = ?`,
     ).run(taskId, projectId, agentName);
 
     logEventInternal(projectId, "task_pickup", { agent: agentName }, taskId, agentName);
@@ -315,7 +320,7 @@ export function pickupTask(projectId: string, agentName: string): Task | undefin
 export function pickupSpecificTask(
   projectId: string,
   agentName: string,
-  taskNumber: string
+  taskNumber: string,
 ): { task?: Task; error?: string } {
   const db = getDb(projectId);
 
@@ -324,37 +329,50 @@ export function pickupSpecificTask(
 
     const row = db
       .prepare(
-        `SELECT * FROM tasks WHERE project_id = ? AND task_number = ? AND status = 'open' AND deps_met = 1`
+        `SELECT * FROM tasks WHERE project_id = ? AND task_number = ? AND status = 'open' AND deps_met = 1`,
       )
       .get(projectId, taskNumber) as Record<string, unknown> | undefined;
 
     if (!row) return { error: `Task ${taskNumber} is not available (not open or deps not met)` };
 
-    const taskId = row["id"] as string;
+    const taskId = row.id as string;
 
     db.prepare(
       `UPDATE tasks SET status = 'in-progress', assignee = ?, started_at = datetime('now'), updated_at = datetime('now')
-       WHERE id = ?`
+       WHERE id = ?`,
     ).run(agentName, taskId);
 
     db.prepare(
-      `UPDATE agents SET status = 'working', current_task_id = ? WHERE project_id = ? AND name = ?`
+      `UPDATE agents SET status = 'working', current_task_id = ? WHERE project_id = ? AND name = ?`,
     ).run(taskId, projectId, agentName);
 
-    logEventInternal(projectId, "task_pickup", { agent: agentName, task_number: taskNumber }, taskId, agentName);
+    logEventInternal(
+      projectId,
+      "task_pickup",
+      { agent: agentName, task_number: taskNumber },
+      taskId,
+      agentName,
+    );
 
-    const updated = db.prepare("SELECT * FROM tasks WHERE id = ?").get(taskId) as Record<string, unknown>;
+    const updated = db.prepare("SELECT * FROM tasks WHERE id = ?").get(taskId) as Record<
+      string,
+      unknown
+    >;
     return { task: mapTask(updated) };
   })();
 }
 
-export function updateTask(projectId: string, taskId: string, input: TaskUpdateInput): Task | undefined {
+export function updateTask(
+  projectId: string,
+  taskId: string,
+  input: TaskUpdateInput,
+): Task | undefined {
   const db = getDb(projectId);
 
   const result = db.transaction(() => {
-    const existing = db.prepare("SELECT * FROM tasks WHERE id = ? AND project_id = ?").get(taskId, projectId) as
-      | Record<string, unknown>
-      | undefined;
+    const existing = db
+      .prepare("SELECT * FROM tasks WHERE id = ? AND project_id = ?")
+      .get(taskId, projectId) as Record<string, unknown> | undefined;
     if (!existing) return undefined;
 
     const sets: string[] = ["updated_at = datetime('now')"];
@@ -414,7 +432,9 @@ export function updateTask(projectId: string, taskId: string, input: TaskUpdateI
     }
 
     params.push(taskId, projectId);
-    db.prepare(`UPDATE tasks SET ${sets.join(", ")} WHERE id = ? AND project_id = ?`).run(...params);
+    db.prepare(`UPDATE tasks SET ${sets.join(", ")} WHERE id = ? AND project_id = ?`).run(
+      ...params,
+    );
 
     return db.prepare("SELECT * FROM tasks WHERE id = ?").get(taskId) as Record<string, unknown>;
   })();
@@ -427,35 +447,46 @@ export function updateTask(projectId: string, taskId: string, input: TaskUpdateI
  * Agent says "I'm done" → task moves to review, deps resolve immediately.
  * Human approves from dashboard later (review → done) — just bookkeeping, doesn't block the pipeline.
  */
-export function completeTask(projectId: string, taskId: string, agentName: string, notes?: string): Task | undefined {
+export function completeTask(
+  projectId: string,
+  taskId: string,
+  agentName: string,
+  notes?: string,
+): Task | undefined {
   const db = getDb(projectId);
 
   const result = db.transaction(() => {
     upsertAgent(projectId, agentName);
 
-    const existing = db.prepare("SELECT * FROM tasks WHERE id = ? AND project_id = ?").get(taskId, projectId) as
-      | Record<string, unknown>
-      | undefined;
+    const existing = db
+      .prepare("SELECT * FROM tasks WHERE id = ? AND project_id = ?")
+      .get(taskId, projectId) as Record<string, unknown> | undefined;
     if (!existing) return undefined;
-    if (existing["status"] !== "in-progress") return undefined;
+    if (existing.status !== "in-progress") return undefined;
 
     // Append notes if provided
-    let updatedNotes = parseJsonArray(existing["notes"]);
+    let updatedNotes = parseJsonArray(existing.notes);
     if (notes) {
       updatedNotes = [...updatedNotes, notes];
     }
 
     db.prepare(
-      `UPDATE tasks SET status = 'review', notes = ?, completed_at = datetime('now'), updated_at = datetime('now') WHERE id = ?`
+      `UPDATE tasks SET status = 'review', notes = ?, completed_at = datetime('now'), updated_at = datetime('now') WHERE id = ?`,
     ).run(JSON.stringify(updatedNotes), taskId);
 
     // Free up the agent
     db.prepare(
-      `UPDATE agents SET status = 'idle', current_task_id = NULL WHERE project_id = ? AND name = ?`
+      `UPDATE agents SET status = 'idle', current_task_id = NULL WHERE project_id = ? AND name = ?`,
     ).run(projectId, agentName);
 
-    const taskNumber = existing["task_number"] as string;
-    logEventInternal(projectId, "task_complete", { notes, task_number: taskNumber }, taskId, agentName);
+    const taskNumber = existing.task_number as string;
+    logEventInternal(
+      projectId,
+      "task_complete",
+      { notes, task_number: taskNumber },
+      taskId,
+      agentName,
+    );
 
     // Deps resolve on review — don't block the pipeline waiting for human approval
     recalculateDependents(projectId, taskNumber);
@@ -474,17 +505,17 @@ export function markTaskDone(projectId: string, taskId: string): Task | undefine
   const db = getDb(projectId);
 
   const result = db.transaction(() => {
-    const existing = db.prepare("SELECT * FROM tasks WHERE id = ? AND project_id = ?").get(taskId, projectId) as
-      | Record<string, unknown>
-      | undefined;
+    const existing = db
+      .prepare("SELECT * FROM tasks WHERE id = ? AND project_id = ?")
+      .get(taskId, projectId) as Record<string, unknown> | undefined;
     if (!existing) return undefined;
-    if (existing["status"] !== "review") return undefined;
+    if (existing.status !== "review") return undefined;
 
-    db.prepare(
-      `UPDATE tasks SET status = 'done', updated_at = datetime('now') WHERE id = ?`
-    ).run(taskId);
+    db.prepare(`UPDATE tasks SET status = 'done', updated_at = datetime('now') WHERE id = ?`).run(
+      taskId,
+    );
 
-    const taskNumber = existing["task_number"] as string;
+    const taskNumber = existing.task_number as string;
     logEventInternal(projectId, "task_approved", { task_number: taskNumber }, taskId);
 
     return db.prepare("SELECT * FROM tasks WHERE id = ?").get(taskId) as Record<string, unknown>;
@@ -496,25 +527,30 @@ export function markTaskDone(projectId: string, taskId: string): Task | undefine
 /**
  * Block a task with a reason.
  */
-export function blockTask(projectId: string, taskId: string, agentName: string, reason: string): Task | undefined {
+export function blockTask(
+  projectId: string,
+  taskId: string,
+  agentName: string,
+  reason: string,
+): Task | undefined {
   const db = getDb(projectId);
 
   const result = db.transaction(() => {
     upsertAgent(projectId, agentName);
 
-    const existing = db.prepare("SELECT * FROM tasks WHERE id = ? AND project_id = ?").get(taskId, projectId) as
-      | Record<string, unknown>
-      | undefined;
+    const existing = db
+      .prepare("SELECT * FROM tasks WHERE id = ? AND project_id = ?")
+      .get(taskId, projectId) as Record<string, unknown> | undefined;
     if (!existing) return undefined;
-    if (existing["status"] !== "in-progress" && existing["status"] !== "open") return undefined;
+    if (existing.status !== "in-progress" && existing.status !== "open") return undefined;
 
     db.prepare(
-      `UPDATE tasks SET status = 'blocked', blocker_reason = ?, updated_at = datetime('now') WHERE id = ?`
+      `UPDATE tasks SET status = 'blocked', blocker_reason = ?, updated_at = datetime('now') WHERE id = ?`,
     ).run(reason, taskId);
 
     // Free up the agent
     db.prepare(
-      `UPDATE agents SET status = 'idle', current_task_id = NULL WHERE project_id = ? AND name = ?`
+      `UPDATE agents SET status = 'idle', current_task_id = NULL WHERE project_id = ? AND name = ?`,
     ).run(projectId, agentName);
 
     logEventInternal(projectId, "task_blocked", { reason }, taskId, agentName);
@@ -532,14 +568,14 @@ export function unblockTask(projectId: string, taskId: string): Task | undefined
   const db = getDb(projectId);
 
   const result = db.transaction(() => {
-    const existing = db.prepare("SELECT * FROM tasks WHERE id = ? AND project_id = ?").get(taskId, projectId) as
-      | Record<string, unknown>
-      | undefined;
+    const existing = db
+      .prepare("SELECT * FROM tasks WHERE id = ? AND project_id = ?")
+      .get(taskId, projectId) as Record<string, unknown> | undefined;
     if (!existing) return undefined;
-    if (existing["status"] !== "blocked") return undefined;
+    if (existing.status !== "blocked") return undefined;
 
     db.prepare(
-      `UPDATE tasks SET status = 'open', blocker_reason = NULL, assignee = NULL, updated_at = datetime('now') WHERE id = ?`
+      `UPDATE tasks SET status = 'open', blocker_reason = NULL, assignee = NULL, updated_at = datetime('now') WHERE id = ?`,
     ).run(taskId);
 
     logEventInternal(projectId, "task_unblocked", {}, taskId);
@@ -580,25 +616,31 @@ function recalculateDependents(projectId: string, completedTaskNumber: string): 
 
   // Find all tasks in this project that have this task in their depends_on
   const allTasks = db
-    .prepare("SELECT * FROM tasks WHERE project_id = ? AND status IN ('backlog', 'open', 'blocked')")
+    .prepare(
+      "SELECT * FROM tasks WHERE project_id = ? AND status IN ('backlog', 'open', 'blocked')",
+    )
     .all(projectId) as Record<string, unknown>[];
 
   for (const row of allTasks) {
-    const deps = parseJsonArray(row["depends_on"]);
+    const deps = parseJsonArray(row.depends_on);
     if (!deps.includes(completedTaskNumber)) continue;
 
     // Check if ALL deps are now done
     const allDepsDone = computeDepsMet(projectId, deps);
     if (allDepsDone) {
-      const taskId = row["id"] as string;
-      const currentStatus = row["status"] as string;
+      const taskId = row.id as string;
+      const currentStatus = row.status as string;
 
-      db.prepare("UPDATE tasks SET deps_met = 1, updated_at = datetime('now') WHERE id = ?").run(taskId);
+      db.prepare("UPDATE tasks SET deps_met = 1, updated_at = datetime('now') WHERE id = ?").run(
+        taskId,
+      );
 
       // Auto-transition backlog → open when deps are met
       if (currentStatus === "backlog") {
-        db.prepare("UPDATE tasks SET status = 'open', updated_at = datetime('now') WHERE id = ?").run(taskId);
-        logEventInternal(projectId, "deps_met", { task_number: row["task_number"] as string }, taskId);
+        db.prepare(
+          "UPDATE tasks SET status = 'open', updated_at = datetime('now') WHERE id = ?",
+        ).run(taskId);
+        logEventInternal(projectId, "deps_met", { task_number: row.task_number as string }, taskId);
       }
     }
   }
@@ -633,12 +675,19 @@ function logEventInternal(
   action: string,
   detail?: Record<string, unknown>,
   taskId?: string,
-  agent?: string
+  agent?: string,
 ): void {
   const db = getDb(projectId);
   db.prepare(
-    `INSERT INTO events (id, project_id, task_id, agent, action, detail) VALUES (?, ?, ?, ?, ?, ?)`
-  ).run(randomUUID(), projectId, taskId ?? null, agent ?? null, action, detail ? JSON.stringify(detail) : null);
+    "INSERT INTO events (id, project_id, task_id, agent, action, detail) VALUES (?, ?, ?, ?, ?, ?)",
+  ).run(
+    randomUUID(),
+    projectId,
+    taskId ?? null,
+    agent ?? null,
+    action,
+    detail ? JSON.stringify(detail) : null,
+  );
 }
 
 export function logEvent(
@@ -646,13 +695,20 @@ export function logEvent(
   action: string,
   detail?: Record<string, unknown>,
   taskId?: string,
-  agent?: string
+  agent?: string,
 ): Event {
   const db = getDb(projectId);
   const id = randomUUID();
   db.prepare(
-    `INSERT INTO events (id, project_id, task_id, agent, action, detail) VALUES (?, ?, ?, ?, ?, ?)`
-  ).run(id, projectId, taskId ?? null, agent ?? null, action, detail ? JSON.stringify(detail) : null);
+    "INSERT INTO events (id, project_id, task_id, agent, action, detail) VALUES (?, ?, ?, ?, ?, ?)",
+  ).run(
+    id,
+    projectId,
+    taskId ?? null,
+    agent ?? null,
+    action,
+    detail ? JSON.stringify(detail) : null,
+  );
 
   const row = db.prepare("SELECT * FROM events WHERE id = ?").get(id) as Record<string, unknown>;
   return mapEvent(row);
@@ -660,7 +716,7 @@ export function logEvent(
 
 export function listEvents(
   projectId: string,
-  filters?: { task_id?: string; agent?: string; limit?: number }
+  filters?: { task_id?: string; agent?: string; limit?: number },
 ): Event[] {
   const db = getDb(projectId);
   let sql = "SELECT * FROM events WHERE project_id = ?";
@@ -694,8 +750,17 @@ export function createDoc(projectId: string, input: DocCreateInput): Doc {
   const id = randomUUID();
 
   db.prepare(
-    `INSERT INTO docs (id, project_id, type, title, body, section, tags, author) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`
-  ).run(id, projectId, input.type, input.title, input.body, input.section ?? null, JSON.stringify(input.tags), input.author ?? null);
+    "INSERT INTO docs (id, project_id, type, title, body, section, tags, author) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+  ).run(
+    id,
+    projectId,
+    input.type,
+    input.title,
+    input.body,
+    input.section ?? null,
+    JSON.stringify(input.tags),
+    input.author ?? null,
+  );
 
   const row = db.prepare("SELECT * FROM docs WHERE id = ?").get(id) as Record<string, unknown>;
   return mapDoc(row);
@@ -703,21 +768,22 @@ export function createDoc(projectId: string, input: DocCreateInput): Doc {
 
 export function getDoc(projectId: string, id: string): Doc | undefined {
   const db = getDb(projectId);
-  const row = db
-    .prepare("SELECT * FROM docs WHERE id = ? AND project_id = ?")
-    .get(id, projectId) as Record<string, unknown> | undefined;
+  const row = db.prepare("SELECT * FROM docs WHERE id = ? AND project_id = ?").get(id, projectId) as
+    | Record<string, unknown>
+    | undefined;
   return row ? mapDoc(row) : undefined;
 }
 
 export function searchDocs(
   projectId: string,
   query: string,
-  filters?: { type?: string; limit?: number }
+  filters?: { type?: string; limit?: number },
 ): Doc[] {
   const db = getDb(projectId);
 
   // Simple keyword search using LIKE
-  let sql = "SELECT * FROM docs WHERE project_id = ? AND (title LIKE ? OR body LIKE ? OR tags LIKE ?)";
+  let sql =
+    "SELECT * FROM docs WHERE project_id = ? AND (title LIKE ? OR body LIKE ? OR tags LIKE ?)";
   const pattern = `%${query}%`;
   const params: unknown[] = [projectId, pattern, pattern, pattern];
 
@@ -726,7 +792,8 @@ export function searchDocs(
     params.push(filters.type);
   }
 
-  sql += " ORDER BY CASE type WHEN 'operational' THEN 0 WHEN 'decision' THEN 1 WHEN 'reference' THEN 2 ELSE 3 END, updated_at DESC";
+  sql +=
+    " ORDER BY CASE type WHEN 'operational' THEN 0 WHEN 'decision' THEN 1 WHEN 'reference' THEN 2 ELSE 3 END, updated_at DESC";
 
   const limit = filters?.limit ?? 10;
   sql += " LIMIT ?";
@@ -765,9 +832,7 @@ export function getBoardStatus(projectId: string): {
   const db = getDb(projectId);
 
   const counts = db
-    .prepare(
-      `SELECT status, COUNT(*) as count FROM tasks WHERE project_id = ? GROUP BY status`
-    )
+    .prepare("SELECT status, COUNT(*) as count FROM tasks WHERE project_id = ? GROUP BY status")
     .all(projectId) as { status: string; count: number }[];
 
   const byStatus: Record<string, number> = {};
@@ -778,7 +843,9 @@ export function getBoardStatus(projectId: string): {
   }
 
   const blockedRows = db
-    .prepare("SELECT * FROM tasks WHERE project_id = ? AND status = 'blocked' ORDER BY updated_at DESC")
+    .prepare(
+      "SELECT * FROM tasks WHERE project_id = ? AND status = 'blocked' ORDER BY updated_at DESC",
+    )
     .all(projectId) as Record<string, unknown>[];
 
   const agentRows = db

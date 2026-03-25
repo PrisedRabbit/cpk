@@ -9,6 +9,7 @@ import type {
   DocCreateInput,
   Event,
   Project,
+  ProjectUpdateInput,
   Task,
   TaskCreateInput,
   TaskUpdateInput,
@@ -103,7 +104,12 @@ export class ApiClient {
 
   // --- Projects ---
 
-  async createProject(input: { name: string; description?: string; path?: string }): Promise<Project> {
+  async createProject(input: {
+    name: string;
+    description?: string;
+    path?: string;
+    db_dir?: string;
+  }): Promise<Project> {
     return this.request("/api/projects", {
       method: "POST",
       body: JSON.stringify(input),
@@ -116,6 +122,13 @@ export class ApiClient {
 
   async getProject(id: string): Promise<Project> {
     return this.request(`/api/projects/${id}`);
+  }
+
+  async updateProject(id: string, input: ProjectUpdateInput): Promise<Project> {
+    return this.request(`/api/projects/${id}`, {
+      method: "PATCH",
+      body: JSON.stringify(input),
+    });
   }
 
   // --- Tasks ---
@@ -173,10 +186,13 @@ export class ApiClient {
   }
 
   async completeTask(id: string, agentName: string, notes?: string): Promise<Task> {
-    return this.request(`/api/tasks/${id}/done?${this.qs()}&agent=${encodeURIComponent(agentName)}`, {
-      method: "POST",
-      body: JSON.stringify({ notes }),
-    });
+    return this.request(
+      `/api/tasks/${id}/done?${this.qs()}&agent=${encodeURIComponent(agentName)}`,
+      {
+        method: "POST",
+        body: JSON.stringify({ notes }),
+      },
+    );
   }
 
   async blockTask(id: string, reason: string, agentName?: string): Promise<Task> {

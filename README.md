@@ -24,8 +24,11 @@ Requires Node 20+. macOS and Linux only.
 # Start the server (daemon, port 41920)
 cpk server start
 
-# Initialize a project in the current directory
+# Initialize a project (hosted storage by default)
 cpk init --name my-project
+
+# Initialize with a custom hosted DB root on the server
+cpk init --name my-project --db-dir /srv/codepakt/projects
 
 # Or initialize from a PRD (stores it in the knowledge base)
 cpk init --name my-project --prd ./PRD.md
@@ -58,8 +61,9 @@ cpk server logs -n 200       # Last 200 lines
 
 ### Init
 ```bash
-cpk init                          # Initialize project (uses directory name)
-cpk init --name my-app            # Initialize with custom name
+cpk init                          # Initialize project (uses directory name, hosted storage by default)
+cpk init --name my-app            # Initialize with custom name (hosted storage by default)
+cpk init --name my-app --db-dir /srv/codepakt/projects  # Override hosted DB root
 cpk init --name my-app --prd PRD.md  # Initialize + store PRD in knowledge base
 ```
 
@@ -117,6 +121,7 @@ cpk agents-md generate     # Alias for cpk generate (backward compat)
 cpk config show                            # Show current config
 cpk config set url http://localhost:8080   # Point at different server
 cpk config set project_id proj_abc123      # Switch project
+cpk config set db_dir /srv/codepakt/dbs    # Hosted DB root for this project
 ```
 
 ### Environment Variables
@@ -156,7 +161,8 @@ codepakt
 **Key design choices:**
 - Atomic task pickup via `BEGIN IMMEDIATE` transactions — no race conditions
 - No capability matching — capabilities are informational metadata, not enforced
-- Per-project databases at `<project>/.codepakt/data.db` — portable, no shared state
+- `cpk init` defaults to hosted storage under `~/.codepakt/projects/<projectId>/data.db`
+- Local project storage remains available at `<project>/.codepakt/data.db` when explicitly using a local path workflow
 - Global index at `~/.codepakt/index.json` for project discovery
 - All mutations logged to events table
 
@@ -167,10 +173,23 @@ codepakt
 | `~/.codepakt/index.json` | Global project index |
 | `~/.codepakt/server.pid` | Daemon PID file |
 | `~/.codepakt/server.log` | Server logs (`cpk server logs` to view) |
+| `~/.codepakt/projects/<projectId>/data.db` | Default hosted SQLite database |
 | `<project>/.codepakt/data.db` | Per-project SQLite database |
-| `<project>/.codepakt/config.json` | Project CLI config (server URL, project ID) |
+| `<project>/.codepakt/config.json` | Project CLI config (server URL, project ID, optional `db_dir`) |
 | `<project>/.codepakt/AGENTS.md` | Generated agent protocol + roster (committed to git) |
 | `<project>/.codepakt/CLAUDE.md` | Generated Claude Code instructions (committed to git) |
+
+Hosted storage is the default for `cpk init`. Override the server-side DB root only when needed:
+
+```bash
+cpk init --db-dir /srv/codepakt/dbs
+```
+
+You can also point a project at a custom server-side root:
+
+```bash
+cpk config set db_dir /srv/codepakt/dbs
+```
 
 ## Dashboard
 

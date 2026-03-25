@@ -1,27 +1,30 @@
-import { Command } from "commander";
 import { basename, resolve } from "node:path";
-import { saveConfig } from "../config.js";
+import { Command } from "commander";
+import { getProjectDbDir, saveConfig } from "../config.js";
 import { createClient, handleError } from "../helpers.js";
 import { runGenerate } from "./generate.js";
 
 export const initCommand = new Command("init")
   .description("Initialize a Codepakt project in the current directory")
   .option("-n, --name <name>", "Project name (defaults to directory name)")
+  .option("--db-dir <path>", "Override hosted database root on the server")
   .option("--prd <path>", "Path to PRD markdown file (stores in KB)")
-  .action(async (opts: { name?: string; prd?: string }) => {
+  .action(async (opts: { name?: string; prd?: string; dbDir?: string }) => {
     try {
       const client = createClient();
       const name = opts.name ?? basename(process.cwd());
       const projectPath = resolve(process.cwd());
+      const dbDir = opts.dbDir ?? getProjectDbDir();
 
-      // Create project with path → server creates .codepakt/data.db here
-      const project = await client.createProject({ name, path: projectPath });
+      // Hosted storage is the default. --db-dir only overrides the hosted root.
+      const project = await client.createProject(dbDir ? { name, db_dir: dbDir } : { name });
       console.log(`Project created: ${project.name} (${project.id})`);
 
       // Save config
       saveConfig({
         url: client.getBaseUrl(),
         project_id: project.id,
+        db_dir: dbDir,
       });
       console.log(".codepakt/config.json created");
 
@@ -59,11 +62,11 @@ export const initCommand = new Command("init")
       console.log("");
       console.log("Next steps:");
       if (opts.prd) {
-        console.log('  Ask your agent to set up the board:');
+        console.log("  Ask your agent to set up the board:");
         console.log('    "Read the PRD with `cpk docs search prd` and decompose it');
         console.log('     into tasks using `cpk task add`. Follow the Board Setup Guide."');
       } else {
-        console.log("  cpk task add --title \"First task\" --priority P0");
+        console.log('  cpk task add --title "First task" --priority P0');
       }
     } catch (err) {
       handleError(err);

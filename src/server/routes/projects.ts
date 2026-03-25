@@ -1,46 +1,89 @@
-import { Hono } from "hono";
 import { randomUUID } from "node:crypto";
-import { join } from "node:path";
-import { DB_FILE, PROJECT_CONFIG_DIR } from "../../shared/constants.js";
-import { ProjectCreateSchema } from "../../shared/schemas.js";
-import { SCHEMA_VERSION, openDatabase } from "../db/index.js";
-import { getProjectEntry, listProjectEntries, registerProject, touchProject } from "../db/project-index.js";
-import { BadRequestError, NotFoundError } from "../middleware/error.js";
+import { copyFileSync, existsSync, mkdirSync, renameSync, rmSync } from "node:fs";
+import { dirname } from "node:path";
+import { Hono } from "hono";
+import { resolveProjectStorage } from "../../shared/project-storage.js";
+import { ProjectCreateSchema, ProjectUpdateSchema } from "../../shared/schemas.js";
+import { SCHEMA_VERSION, closeDb, openDatabase } from "../db/index.js";
+import {
+  getProjectEntry,
+  listProjectEntries,
+  registerProject,
+  touchProject,
+  updateProjectEntry,
+} from "../db/project-index.js";
+import { NotFoundError } from "../middleware/error.js";
 
 const projects = new Hono();
+
+function checkpointDatabase(dbPath: string, key?: string): void {
+  if (!existsSync(dbPath)) {
+    throw new Error(`Project database file is missing: ${dbPath}`);
+  }
+
+  try {
+    openDatabase(dbPath, key).pragma("wal_checkpoint(TRUNCATE)");
+  } catch (error) {
+    throw new Error(`Failed to checkpoint project database before move: ${dbPath}`, {
+      cause: error,
+    });
+  }
+}
+
+function closeProjectConnections(projectId: string, dbPath: string): void {
+  checkpointDatabase(dbPath, projectId);
+  checkpointDatabase(dbPath);
+  closeDb(projectId);
+  closeDb(dbPath);
+}
+
+function moveProjectDb(currentDbPath: string, nextDbPath: string): void {
+  if (currentDbPath === nextDbPath) return;
+  if (!existsSync(currentDbPath)) {
+    throw new Error(`Project database file is missing: ${currentDbPath}`);
+  }
+
+  mkdirSync(dirname(nextDbPath), { recursive: true });
+
+  try {
+    renameSync(currentDbPath, nextDbPath);
+  } catch (err) {
+    if ((err as NodeJS.ErrnoException).code !== "EXDEV") {
+      throw err;
+    }
+
+    copyFileSync(currentDbPath, nextDbPath);
+    rmSync(currentDbPath, { force: true });
+  }
+
+  rmSync(`${currentDbPath}-wal`, { force: true });
+  rmSync(`${currentDbPath}-shm`, { force: true });
+}
 
 /**
  * Create a project.
  *
- * If body includes `path`, creates a project-local DB at <path>/.codepakt/data.db
- * and registers it in the global index.
- *
- * If no `path`, uses the default DB (backward compat for tests).
+ * With `path` and no `db_dir`, creates a project-local DB at <path>/.codepakt/data.db.
+ * Without `path`, or with `db_dir`, uses hosted storage under ~/.codepakt or the custom root.
  */
 projects.post("/projects", async (c) => {
   const body = await c.req.json();
   const input = ProjectCreateSchema.parse(body);
-  const projectPath = input.path;
-
-  if (!projectPath) {
-    throw new BadRequestError("'path' is required. Pass the absolute project directory path.");
-  }
-
-  // Open project-specific DB (creates .codepakt/data.db with schema)
-  const dbPath = join(projectPath, PROJECT_CONFIG_DIR, DB_FILE);
-  openDatabase(dbPath);
 
   // Generate project ID
   const id = randomUUID();
+  const storage = resolveProjectStorage({
+    projectId: id,
+    projectPath: input.path,
+    dbDir: input.db_dir,
+  });
+
+  const projectDb = openDatabase(storage.dbPath, id);
 
   // Register in global index with schema version
-  registerProject(id, input.name, projectPath, SCHEMA_VERSION);
-
-  // Cache the DB connection keyed by project ID for subsequent requests
-  openDatabase(dbPath, id);
+  registerProject(id, input.name, storage.projectPath, storage.dbPath, SCHEMA_VERSION);
 
   // Initialize task counter in metadata
-  const projectDb = openDatabase(dbPath, id);
   projectDb
     .prepare("INSERT OR IGNORE INTO metadata (key, value) VALUES ('next_task_number', '1')")
     .run();
@@ -51,6 +94,7 @@ projects.post("/projects", async (c) => {
         id,
         name: input.name,
         description: input.description ?? null,
+        path: storage.projectPath,
       },
     },
     201,
@@ -85,6 +129,40 @@ projects.get("/projects/:id", (c) => {
       schema_version: entry.schema_version,
       last_accessed: entry.last_accessed,
       created_at: entry.created_at,
+    },
+  });
+});
+
+projects.patch("/projects/:id", async (c) => {
+  const id = c.req.param("id");
+  const entry = getProjectEntry(id);
+  if (!entry) throw new NotFoundError("Project not found");
+
+  const body = await c.req.json();
+  const input = ProjectUpdateSchema.parse(body);
+  const storage = resolveProjectStorage({
+    projectId: id,
+    projectPath: entry.path ?? undefined,
+    dbDir: input.db_dir,
+  });
+
+  closeProjectConnections(id, entry.db_path);
+  moveProjectDb(entry.db_path, storage.dbPath);
+
+  const updated = updateProjectEntry(id, {
+    path: storage.projectPath,
+    db_path: storage.dbPath,
+  });
+  openDatabase(storage.dbPath, id);
+
+  return c.json({
+    data: {
+      id,
+      name: updated?.name ?? entry.name,
+      path: updated?.path ?? storage.projectPath,
+      schema_version: updated?.schema_version ?? entry.schema_version,
+      last_accessed: updated?.last_accessed ?? entry.last_accessed,
+      created_at: updated?.created_at ?? entry.created_at,
     },
   });
 });

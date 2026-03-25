@@ -4,7 +4,13 @@
  */
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
-import { CONFIG_FILE, DEFAULT_DATA_DIR, DEFAULT_PORT, PROJECT_CONFIG_DIR, resolveDataDir } from "../shared/constants.js";
+import {
+  CONFIG_FILE,
+  DEFAULT_PORT,
+  PROJECT_CONFIG_DIR,
+  getConfiguredDataDir,
+  resolveDataDir,
+} from "../shared/constants.js";
 import type { ProjectConfig } from "../shared/types.js";
 
 /**
@@ -47,7 +53,7 @@ export function saveConfig(config: ProjectConfig, projectDir?: string): void {
   }
 
   const configPath = join(configDir, CONFIG_FILE);
-  writeFileSync(configPath, JSON.stringify(config, null, 2) + "\n");
+  writeFileSync(configPath, `${JSON.stringify(config, null, 2)}\n`);
 }
 
 /**
@@ -55,14 +61,14 @@ export function saveConfig(config: ProjectConfig, projectDir?: string): void {
  */
 export function getServerUrl(projectDir?: string): string {
   // Env var takes precedence
-  if (process.env["CPK_URL"]) return process.env["CPK_URL"];
+  if (process.env.CPK_URL) return process.env.CPK_URL;
 
   // Then project config
   const config = loadConfig(projectDir);
   if (config?.url) return config.url;
 
   // Default to localhost
-  const port = Number(process.env["CPK_PORT"]) || DEFAULT_PORT;
+  const port = Number(process.env.CPK_PORT) || DEFAULT_PORT;
   return `http://localhost:${port}`;
 }
 
@@ -70,7 +76,7 @@ export function getServerUrl(projectDir?: string): string {
  * Get agent name from env var.
  */
 export function getAgentName(): string | undefined {
-  return process.env["CPK_AGENT"];
+  return process.env.CPK_AGENT;
 }
 
 /**
@@ -81,9 +87,14 @@ export function getProjectId(projectDir?: string): string | undefined {
   return config?.project_id;
 }
 
+export function getProjectDbDir(projectDir?: string): string | undefined {
+  const config = loadConfig(projectDir);
+  return config?.db_dir;
+}
+
 /**
  * Get the data directory (for server/DB).
  */
 export function getDataDir(): string {
-  return resolveDataDir(process.env["CPK_DATA_DIR"] ?? DEFAULT_DATA_DIR);
+  return resolveDataDir(getConfiguredDataDir());
 }

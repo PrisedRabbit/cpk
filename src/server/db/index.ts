@@ -1,3 +1,5 @@
+import { existsSync, mkdirSync } from "node:fs";
+import { dirname } from "node:path";
 /**
  * Database connection management.
  *
@@ -8,8 +10,6 @@
  * For single-project usage (most of v0.1), there's only one connection in the pool.
  */
 import Database from "better-sqlite3";
-import { existsSync, mkdirSync } from "node:fs";
-import { dirname } from "node:path";
 
 export const SCHEMA_VERSION = 2;
 

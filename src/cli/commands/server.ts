@@ -1,8 +1,8 @@
 import { Command } from "commander";
-import { DEFAULT_PORT } from "../../shared/constants.js";
 import { isDaemonRunning, startDaemon, stopDaemon } from "../../server/daemon.js";
-import { getDataDir } from "../config.js";
+import { DEFAULT_PORT } from "../../shared/constants.js";
 import { ApiClient } from "../api-client.js";
+import { getDataDir } from "../config.js";
 
 export const serverCommand = new Command("server").description("Manage the Codepakt server daemon");
 
@@ -41,7 +41,7 @@ serverCommand
     }
     if (!healthy) {
       console.log(`Server started (PID: ${pid}) but health check failed after 10s.`);
-      console.log(`  Check logs: cpk server logs`);
+      console.log("  Check logs: cpk server logs");
     }
   });
 
@@ -67,7 +67,7 @@ serverCommand
       return;
     }
 
-    const port = Number(process.env["CPK_PORT"]) || DEFAULT_PORT;
+    const port = Number(process.env.CPK_PORT) || DEFAULT_PORT;
     try {
       const client = new ApiClient(`http://localhost:${port}`);
       const health = await client.health();

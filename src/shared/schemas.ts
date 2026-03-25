@@ -8,6 +8,13 @@ export const ProjectCreateSchema = z
     name: z.string().min(1).max(100),
     description: z.string().max(2000).optional(),
     path: z.string().optional(),
+    db_dir: z.string().min(1).optional(),
+  })
+  .strict();
+
+export const ProjectUpdateSchema = z
+  .object({
+    db_dir: z.string().min(1),
   })
   .strict();
 
