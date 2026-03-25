@@ -110,6 +110,9 @@ tasks.patch("/tasks/:id", async (c) => {
   // Validate status transitions if status is being changed
   if (input.status && typeof input.status === "string") {
     const newStatus = input.status as TaskStatus;
+    if (newStatus === existing.status) {
+      return c.json({ data: existing });
+    }
     const allowed = STATUS_TRANSITIONS[existing.status];
     if (!allowed.includes(newStatus)) {
       throw new BadRequestError(

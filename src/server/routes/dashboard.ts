@@ -681,17 +681,18 @@ function onDragLeave(e) {
 
 async function onDrop(e, newStatus) {
   e.preventDefault();
+  e.stopPropagation();
   const col = e.target.closest('.column');
   if (col) col.classList.remove('drag-over');
   if (!dragTaskId) return;
-  const task = allTasks.find(t => t.id === dragTaskId);
-  if (!task || task.status === newStatus) { dragTaskId = null; return; }
+  const taskId = dragTaskId;
+  dragTaskId = null;
+  const task = allTasks.find(t => t.id === taskId);
+  if (!task || task.status === newStatus) return;
   try {
-    await api('/tasks/' + dragTaskId, { method: 'PATCH', body: JSON.stringify({ status: newStatus }) });
-    dragTaskId = null;
+    await api('/tasks/' + taskId, { method: 'PATCH', body: JSON.stringify({ status: newStatus }) });
     await refresh();
   } catch(e) {
-    dragTaskId = null;
     alert(e.message || 'Cannot move task to ' + newStatus);
   }
 }
