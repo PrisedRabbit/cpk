@@ -11,6 +11,155 @@ import { dirname } from "node:path";
  */
 import Database from "better-sqlite3";
 
+export interface NativeModuleMismatchDetails {
+  runtime_arch: string;
+  runtime_platform: NodeJS.Platform;
+  runtime_exec_path: string;
+  addon_path: string | null;
+  addon_arch: string | null;
+  required_arch: string | null;
+  load_error_code: string;
+}
+
+interface DatabaseReadiness {
+  ready: boolean;
+  checked: boolean;
+  checked_at: string | null;
+  error_code: string | null;
+  message: string | null;
+  details: NativeModuleMismatchDetails | null;
+}
+
+const databaseReadiness: DatabaseReadiness = {
+  ready: false,
+  checked: false,
+  checked_at: null,
+  error_code: null,
+  message: null,
+  details: null,
+};
+
+function markDatabaseReady(): void {
+  databaseReadiness.ready = true;
+  databaseReadiness.checked = true;
+  databaseReadiness.checked_at = new Date().toISOString();
+  databaseReadiness.error_code = null;
+  databaseReadiness.message = null;
+  databaseReadiness.details = null;
+}
+
+function markDatabaseFailure(error: Error): void {
+  databaseReadiness.ready = false;
+  databaseReadiness.checked = true;
+  databaseReadiness.checked_at = new Date().toISOString();
+  if (isNativeModuleMismatchError(error)) {
+    databaseReadiness.error_code = error.code;
+    databaseReadiness.message = error.message;
+    databaseReadiness.details = error.details;
+    return;
+  }
+
+  const detectedMismatch = detectNativeModuleMismatch(error);
+  if (detectedMismatch) {
+    databaseReadiness.error_code = detectedMismatch.code;
+    databaseReadiness.message = detectedMismatch.message;
+    databaseReadiness.details = detectedMismatch.details;
+    return;
+  }
+  databaseReadiness.error_code = "database_error";
+  databaseReadiness.message = error.message;
+  databaseReadiness.details = null;
+}
+
+export class NativeModuleMismatchError extends Error {
+  readonly code = "native_module_mismatch";
+  readonly details: NativeModuleMismatchDetails;
+
+  constructor(details: NativeModuleMismatchDetails) {
+    const addonArch = details.addon_arch ?? "unknown";
+    const requiredArch = details.required_arch ?? details.runtime_arch;
+    const addonPath = details.addon_path ?? "unknown";
+    super(
+      `Native module mismatch for better-sqlite3: addon=${addonArch}, runtime=${requiredArch}, addon_path=${addonPath}. Rebuild better-sqlite3 with the current Node runtime (${details.runtime_exec_path}).`,
+    );
+    this.name = "NativeModuleMismatchError";
+    this.details = details;
+  }
+}
+
+function normalizeError(error: unknown): Error {
+  if (error instanceof Error) return error;
+  return new Error(typeof error === "string" ? error : JSON.stringify(error));
+}
+
+function extractAddonPath(message: string): string | null {
+  const dlopenPath = message.match(/dlopen\(([^,]+),/)?.[1]?.trim();
+  if (dlopenPath) return dlopenPath;
+
+  const addonPath = message.match(/([^\s']*better_sqlite3\.node)/)?.[1];
+  return addonPath ?? null;
+}
+
+function extractArchPair(message: string): { addonArch: string | null; requiredArch: string | null } {
+  const pair = message.match(/have '([^']+)', need '([^']+)'/);
+  return {
+    addonArch: pair?.[1] ?? null,
+    requiredArch: pair?.[2] ?? null,
+  };
+}
+
+export function detectNativeModuleMismatch(error: unknown): NativeModuleMismatchError | undefined {
+  const normalized = normalizeError(error);
+  const code = (normalized as NodeJS.ErrnoException).code;
+  const message = normalized.message ?? "";
+  if (code !== "ERR_DLOPEN_FAILED") return undefined;
+  if (!message.includes("better_sqlite3.node")) return undefined;
+
+  const { addonArch, requiredArch } = extractArchPair(message);
+  return new NativeModuleMismatchError({
+    runtime_arch: process.arch,
+    runtime_platform: process.platform,
+    runtime_exec_path: process.execPath,
+    addon_path: extractAddonPath(message),
+    addon_arch: addonArch,
+    required_arch: requiredArch,
+    load_error_code: code,
+  });
+}
+
+export function isNativeModuleMismatchError(error: unknown): error is NativeModuleMismatchError {
+  return (
+    error instanceof NativeModuleMismatchError ||
+    ((error as { code?: unknown } | undefined)?.code === "native_module_mismatch" &&
+      typeof (error as { message?: unknown } | undefined)?.message === "string")
+  );
+}
+
+export function classifyDatabaseLoadError(error: unknown): Error {
+  const mismatch = detectNativeModuleMismatch(error);
+  if (mismatch) return mismatch;
+  return normalizeError(error);
+}
+
+export function getDatabaseReadiness(): DatabaseReadiness {
+  return { ...databaseReadiness };
+}
+
+export function preflightDatabaseRuntime(): void {
+  let probe: Database.Database | undefined;
+  try {
+    probe = new Database(":memory:");
+    probe.prepare("SELECT 1 AS ok").get();
+    markDatabaseReady();
+  } catch (error) {
+    const classified = classifyDatabaseLoadError(error);
+    markDatabaseFailure(classified);
+    throw classified;
+  } finally {
+    probe?.close();
+  }
+}
+
 export const SCHEMA_VERSION = 2;
 
 const SCHEMA_SQL = `
@@ -148,29 +297,38 @@ export function openDatabase(dbPath: string, key?: string): Database.Database {
     mkdirSync(dir, { recursive: true });
   }
 
-  const db = new Database(dbPath);
+  let db: Database.Database | undefined;
+  try {
+    db = new Database(dbPath);
 
-  // Performance and safety pragmas
-  db.pragma("journal_mode = WAL");
-  db.pragma("busy_timeout = 5000");
-  db.pragma("foreign_keys = ON");
-  db.pragma("synchronous = NORMAL");
+    // Performance and safety pragmas
+    db.pragma("journal_mode = WAL");
+    db.pragma("busy_timeout = 5000");
+    db.pragma("foreign_keys = ON");
+    db.pragma("synchronous = NORMAL");
 
-  // Apply schema (idempotent via IF NOT EXISTS)
-  db.exec(SCHEMA_SQL);
+    // Apply schema (idempotent via IF NOT EXISTS)
+    db.exec(SCHEMA_SQL);
 
-  // Check schema version and migrate if needed
-  const versionRow = db.prepare("SELECT version FROM schema_version LIMIT 1").get() as
-    | { version: number }
-    | undefined;
-  if (!versionRow) {
-    db.prepare("INSERT INTO schema_version (version) VALUES (?)").run(SCHEMA_VERSION);
-  } else if (versionRow.version < SCHEMA_VERSION) {
-    migrateSchema(db, versionRow.version);
+    // Check schema version and migrate if needed
+    const versionRow = db.prepare("SELECT version FROM schema_version LIMIT 1").get() as
+      | { version: number }
+      | undefined;
+    if (!versionRow) {
+      db.prepare("INSERT INTO schema_version (version) VALUES (?)").run(SCHEMA_VERSION);
+    } else if (versionRow.version < SCHEMA_VERSION) {
+      migrateSchema(db, versionRow.version);
+    }
+
+    pool.set(poolKey, db);
+    markDatabaseReady();
+    return db;
+  } catch (error) {
+    db?.close();
+    const classified = classifyDatabaseLoadError(error);
+    markDatabaseFailure(classified);
+    throw classified;
   }
-
-  pool.set(poolKey, db);
-  return db;
 }
 
 /**
@@ -195,13 +353,22 @@ export function initDatabase(dbPath: string): Database.Database {
  * Initialize an in-memory database for testing.
  */
 export function initTestDatabase(): Database.Database {
-  const testDb = new Database(":memory:");
-  testDb.pragma("foreign_keys = ON");
-  testDb.exec(SCHEMA_SQL);
-  testDb.prepare("INSERT INTO schema_version (version) VALUES (?)").run(SCHEMA_VERSION);
+  let testDb: Database.Database | undefined;
+  try {
+    testDb = new Database(":memory:");
+    testDb.pragma("foreign_keys = ON");
+    testDb.exec(SCHEMA_SQL);
+    testDb.prepare("INSERT INTO schema_version (version) VALUES (?)").run(SCHEMA_VERSION);
 
-  pool.set(DEFAULT_KEY, testDb);
-  return testDb;
+    pool.set(DEFAULT_KEY, testDb);
+    markDatabaseReady();
+    return testDb;
+  } catch (error) {
+    testDb?.close();
+    const classified = classifyDatabaseLoadError(error);
+    markDatabaseFailure(classified);
+    throw classified;
+  }
 }
 
 /**

@@ -1,5 +1,6 @@
 import type { Context } from "hono";
 import { ZodError } from "zod";
+import { detectNativeModuleMismatch, isNativeModuleMismatchError } from "../db/index.js";
 
 export class AppError extends Error {
   constructor(
@@ -33,6 +34,17 @@ export class BadRequestError extends AppError {
 }
 
 export function handleError(err: Error, c: Context) {
+  if (isNativeModuleMismatchError(err)) {
+    return c.json(
+      {
+        error: err.code,
+        message: err.message,
+        details: err.details,
+      },
+      500,
+    );
+  }
+
   if (err instanceof ZodError) {
     return c.json(
       {
@@ -54,6 +66,18 @@ export function handleError(err: Error, c: Context) {
         message: err.message,
       },
       err.statusCode as 400 | 404 | 409,
+    );
+  }
+
+  const nativeMismatch = detectNativeModuleMismatch(err);
+  if (nativeMismatch) {
+    return c.json(
+      {
+        error: nativeMismatch.code,
+        message: nativeMismatch.message,
+        details: nativeMismatch.details,
+      },
+      500,
     );
   }
 

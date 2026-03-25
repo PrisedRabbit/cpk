@@ -1,5 +1,5 @@
 import { Command } from "commander";
-import { createClient, handleError, output, requireProjectId } from "../helpers.js";
+import { createClientReady, handleError, output, requireProjectId } from "../helpers.js";
 
 export const boardCommand = new Command("board").description("Board overview and status");
 
@@ -10,7 +10,7 @@ boardCommand
   .action(async (opts: { human?: boolean }) => {
     try {
       requireProjectId();
-      const client = createClient();
+      const client = await createClientReady();
       const status = await client.getBoardStatus();
       output(status, opts.human);
     } catch (err) {

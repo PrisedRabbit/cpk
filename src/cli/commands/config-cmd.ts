@@ -1,6 +1,6 @@
 import { Command } from "commander";
 import { loadConfig, saveConfig } from "../config.js";
-import { createClient, handleError } from "../helpers.js";
+import { createClientReady, handleError } from "../helpers.js";
 
 export const configCommand = new Command("config").description("Manage Codepakt configuration");
 
@@ -30,7 +30,7 @@ configCommand
       }
 
       if (key === "db_dir" && config.project_id) {
-        const client = createClient();
+        const client = await createClientReady();
         await client.updateProject(config.project_id, { db_dir: value });
       }
 

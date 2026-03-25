@@ -1,7 +1,7 @@
 import { basename, resolve } from "node:path";
 import { Command } from "commander";
 import { getProjectDbDir, saveConfig } from "../config.js";
-import { createClient, handleError } from "../helpers.js";
+import { createClientReady, handleError } from "../helpers.js";
 import { runGenerate } from "./generate.js";
 
 export const initCommand = new Command("init")
@@ -11,7 +11,7 @@ export const initCommand = new Command("init")
   .option("--prd <path>", "Path to PRD markdown file (stores in KB)")
   .action(async (opts: { name?: string; prd?: string; dbDir?: string }) => {
     try {
-      const client = createClient();
+      const client = await createClientReady();
       const name = opts.name ?? basename(process.cwd());
       const projectPath = resolve(process.cwd());
       const dbDir = opts.dbDir ?? getProjectDbDir();

@@ -1,6 +1,6 @@
 import { Command } from "commander";
 import type { DocCreateInput } from "../../shared/types.js";
-import { createClient, handleError, output, requireProjectId } from "../helpers.js";
+import { createClientReady, handleError, output, requireProjectId } from "../helpers.js";
 
 export const docsCommand = new Command("docs").description("Knowledge base documents");
 
@@ -17,7 +17,7 @@ docsCommand
   .action(async (opts) => {
     try {
       requireProjectId();
-      const client = createClient();
+      const client = await createClientReady();
 
       const input: DocCreateInput = {
         type: opts.type,
@@ -44,7 +44,7 @@ docsCommand
   .action(async (query: string, opts: { type?: string; limit?: string; human?: boolean }) => {
     try {
       requireProjectId();
-      const client = createClient();
+      const client = await createClientReady();
       const docs = await client.searchDocs(query, {
         type: opts.type,
         limit: opts.limit ? Number(opts.limit) : undefined,
@@ -63,7 +63,7 @@ docsCommand
   .action(async (opts: { type?: string; human?: boolean }) => {
     try {
       requireProjectId();
-      const client = createClient();
+      const client = await createClientReady();
       const docs = await client.listDocs({
         type: opts.type,
       });
@@ -80,7 +80,7 @@ docsCommand
   .action(async (id: string, opts: { human?: boolean }) => {
     try {
       requireProjectId();
-      const client = createClient();
+      const client = await createClientReady();
       const doc = await client.getDoc(id);
       output(doc, opts.human);
     } catch (err) {

@@ -6,7 +6,12 @@ import { existsSync, mkdirSync } from "node:fs";
  */
 import { serve } from "@hono/node-server";
 import { DEFAULT_PORT, getConfiguredDataDir, resolveDataDir } from "../shared/constants.js";
-import { openDatabase, setProjectResolver } from "./db/index.js";
+import {
+  NativeModuleMismatchError,
+  openDatabase,
+  preflightDatabaseRuntime,
+  setProjectResolver,
+} from "./db/index.js";
 import { getProjectEntry } from "./db/project-index.js";
 import { createApp } from "./index.js";
 
@@ -27,6 +32,23 @@ setProjectResolver((projectId: string) => {
   }
   return undefined;
 });
+
+try {
+  preflightDatabaseRuntime();
+} catch (error) {
+  if (error instanceof NativeModuleMismatchError) {
+    console.error(
+      JSON.stringify({
+        error: error.code,
+        message: error.message,
+        details: error.details,
+      }),
+    );
+  } else {
+    console.error("Database preflight failed:", error);
+  }
+  process.exit(1);
+}
 
 // Create and start the Hono app
 const app = createApp();

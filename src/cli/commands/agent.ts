@@ -1,5 +1,5 @@
 import { Command } from "commander";
-import { createClient, handleError, output, requireProjectId } from "../helpers.js";
+import { createClientReady, handleError, output, requireProjectId } from "../helpers.js";
 
 export const agentCommand = new Command("agent").description("Manage agents");
 
@@ -10,7 +10,7 @@ agentCommand
   .action(async (opts) => {
     try {
       requireProjectId();
-      const client = createClient();
+      const client = await createClientReady();
       const agents = await client.listAgents();
       output(agents, opts.human);
     } catch (err) {

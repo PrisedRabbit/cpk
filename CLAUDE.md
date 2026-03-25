@@ -1,3 +1,5 @@
+@import .codepakt/CLAUDE.md
+
 # Codepakt — CLI Package
 
 > `codepakt` — Single npm package: CLI + embedded Hono server + SQLite + web dashboard.

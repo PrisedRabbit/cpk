@@ -2,7 +2,7 @@ import { readFileSync } from "node:fs";
 import { Command } from "commander";
 import type { TaskCreateInput } from "../../shared/types.js";
 import {
-  createClient,
+  createClientReady,
   handleError,
   output,
   requireAgentName,
@@ -29,7 +29,7 @@ taskCommand
   .action(async (opts) => {
     try {
       requireProjectId();
-      const client = createClient();
+      const client = await createClientReady();
 
       if (opts.batch) {
         const raw = readFileSync(opts.batch, "utf-8");
@@ -78,7 +78,7 @@ taskCommand
   .action(async (opts) => {
     try {
       requireProjectId();
-      const client = createClient();
+      const client = await createClientReady();
       const tasks = await client.listTasks({
         status: opts.status,
         assignee: opts.assignee,
@@ -118,7 +118,7 @@ taskCommand
     ) => {
       try {
         requireProjectId();
-        const client = createClient();
+        const client = await createClientReady();
 
         const updates: Record<string, unknown> = {};
         if (opts.status !== undefined) updates.status = opts.status;
@@ -151,7 +151,7 @@ taskCommand
   .action(async (id: string, opts: { human?: boolean }) => {
     try {
       requireProjectId();
-      const client = createClient();
+      const client = await createClientReady();
       const task = await client.getTask(id);
       output(task, opts.human);
     } catch (err) {
@@ -168,7 +168,7 @@ taskCommand
     try {
       requireProjectId();
       const agent = requireAgentName(opts.agent);
-      const client = createClient();
+      const client = await createClientReady();
       const tasks = await client.getMyTasks(agent);
       output(tasks, opts.human);
     } catch (err) {
@@ -186,7 +186,7 @@ taskCommand
     try {
       requireProjectId();
       const agent = requireAgentName(opts.agent);
-      const client = createClient();
+      const client = await createClientReady();
       const task = await client.pickupTask(agent, opts.id);
       output(task, opts.human);
     } catch (err) {
@@ -204,7 +204,7 @@ taskCommand
     try {
       requireProjectId();
       const agent = requireAgentName(opts.agent);
-      const client = createClient();
+      const client = await createClientReady();
       const task = await client.completeTask(id, agent, opts.notes);
       output(task, opts.human);
     } catch (err) {
@@ -222,7 +222,7 @@ taskCommand
     try {
       requireProjectId();
       const agent = requireAgentName(opts.agent);
-      const client = createClient();
+      const client = await createClientReady();
       const task = await client.blockTask(id, opts.reason, agent);
       output(task, opts.human);
     } catch (err) {
@@ -237,7 +237,7 @@ taskCommand
   .action(async (id: string, opts: { human?: boolean }) => {
     try {
       requireProjectId();
-      const client = createClient();
+      const client = await createClientReady();
       const task = await client.unblockTask(id);
       output(task, opts.human);
     } catch (err) {

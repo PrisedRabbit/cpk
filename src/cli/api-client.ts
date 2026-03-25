@@ -21,6 +21,19 @@ interface ApiErrorResponse {
   details?: unknown;
 }
 
+interface HealthResponse {
+  status: string;
+  version: string;
+  uptime_seconds: number;
+  db?: {
+    ready?: boolean;
+    checked?: boolean;
+    error_code?: string | null;
+    message?: string | null;
+    details?: unknown;
+  };
+}
+
 export class ApiClientError extends Error {
   constructor(
     public statusCode: number,
@@ -95,11 +108,28 @@ export class ApiClient {
 
   // --- Health ---
 
-  async health(): Promise<{ status: string; version: string; uptime_seconds: number }> {
+  async health(): Promise<HealthResponse> {
     // Health endpoint returns plain object (no { data: ... } wrapper)
     const res = await fetch(`${this.baseUrl}/health`, { signal: AbortSignal.timeout(5000) });
-    if (!res.ok) throw new ApiClientError(res.status, "health_check_failed", `HTTP ${res.status}`);
-    return res.json() as Promise<{ status: string; version: string; uptime_seconds: number }>;
+    const payload = (await res.json().catch(() => undefined)) as HealthResponse | undefined;
+    if (!payload) {
+      throw new ApiClientError(res.status, "health_check_failed", `HTTP ${res.status}`);
+    }
+
+    if (!res.ok || payload.status !== "ok" || payload.db?.ready === false) {
+      const errorCode =
+        payload.db?.error_code === "native_module_mismatch"
+          ? "native_module_mismatch"
+          : "health_check_failed";
+      const message =
+        payload.db?.message ??
+        (errorCode === "native_module_mismatch"
+          ? "Native module mismatch blocked database startup"
+          : `HTTP ${res.status}`);
+      throw new ApiClientError(res.status, errorCode, message, payload.db?.details);
+    }
+
+    return payload;
   }
 
   // --- Projects ---

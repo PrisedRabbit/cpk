@@ -37,7 +37,7 @@ describe("cli config", () => {
 
     const logSpy = vi.spyOn(console, "log").mockImplementation(() => {});
     vi.doMock("./helpers.js", () => ({
-      createClient: () => ({
+      createClientReady: () => ({
         updateProject: vi.fn().mockResolvedValue(undefined),
       }),
     }));
@@ -53,7 +53,7 @@ describe("cli config", () => {
 
     const updateProject = vi.fn().mockResolvedValue({ id: "proj-123" });
     vi.doMock("./helpers.js", () => ({
-      createClient: () => ({
+      createClientReady: () => ({
         updateProject,
       }),
     }));
@@ -68,7 +68,7 @@ describe("cli config", () => {
     const createProject = vi.fn().mockResolvedValue({ id: "proj-123", name: "demo" });
 
     vi.doMock("./helpers.js", () => ({
-      createClient: () => ({
+      createClientReady: () => ({
         createProject,
         getBaseUrl: () => "http://localhost:41920",
         setProjectId: vi.fn(),
@@ -95,11 +95,42 @@ describe("cli config", () => {
     expect(logSpy).toHaveBeenCalled();
   });
 
+  it("init uses bootstrap-ready client path instead of legacy direct client creation", async () => {
+    const createProject = vi.fn().mockResolvedValue({ id: "proj-123", name: "demo" });
+    const createClientReady = vi.fn().mockResolvedValue({
+      createProject,
+      getBaseUrl: () => "http://localhost:41920",
+      setProjectId: vi.fn(),
+      createDoc: vi.fn(),
+    });
+
+    vi.doMock("./helpers.js", () => ({
+      createClient: () => {
+        throw new Error("legacy createClient path used");
+      },
+      createClientReady,
+      handleError: (err: unknown) => {
+        throw err;
+      },
+    }));
+    vi.doMock("./commands/generate.js", () => ({
+      runGenerate: vi.fn().mockResolvedValue(undefined),
+    }));
+
+    const logSpy = vi.spyOn(console, "log").mockImplementation(() => {});
+    const { initCommand } = await import("./commands/init.js");
+    await initCommand.parseAsync(["--name", "demo"], { from: "user" });
+
+    expect(createClientReady).toHaveBeenCalledTimes(1);
+    expect(createProject).toHaveBeenCalledWith({ name: "demo" });
+    expect(logSpy).toHaveBeenCalled();
+  });
+
   it("init without --db-dir defaults to hosted storage payload", async () => {
     const createProject = vi.fn().mockResolvedValue({ id: "proj-123", name: "demo" });
 
     vi.doMock("./helpers.js", () => ({
-      createClient: () => ({
+      createClientReady: () => ({
         createProject,
         getBaseUrl: () => "http://localhost:41920",
         setProjectId: vi.fn(),
@@ -136,7 +167,7 @@ describe("cli config", () => {
     const createProject = vi.fn().mockResolvedValue({ id: "proj-123", name: "demo" });
 
     vi.doMock("./helpers.js", () => ({
-      createClient: () => ({
+      createClientReady: () => ({
         createProject,
         getBaseUrl: () => "http://localhost:41920",
         setProjectId: vi.fn(),

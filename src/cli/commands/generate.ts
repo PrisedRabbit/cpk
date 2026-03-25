@@ -8,7 +8,7 @@ import {
   VERSION,
 } from "../../shared/constants.js";
 import type { Agent } from "../../shared/types.js";
-import { createClient, handleError, requireProjectId } from "../helpers.js";
+import { createClientReady, handleError, requireProjectId } from "../helpers.js";
 
 const TEMPLATE_BASE_URL = "https://raw.githubusercontent.com/codepakt/cpk/main/templates";
 
@@ -128,7 +128,7 @@ function updateGitignore(projectDir: string): void {
  */
 export async function runGenerate(projectDir?: string): Promise<void> {
   const projectId = requireProjectId();
-  const client = createClient();
+  const client = await createClientReady();
   const dir = projectDir ?? process.cwd();
 
   const [projects, agents] = await Promise.all([client.listProjects(), client.listAgents()]);

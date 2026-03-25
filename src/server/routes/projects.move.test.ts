@@ -1,6 +1,5 @@
 import { Hono } from "hono";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { handleError } from "../middleware/error.js";
 
 const closeDb = vi.fn();
 const getProjectEntry = vi.fn();
@@ -9,11 +8,15 @@ const openDatabase = vi.fn();
 const registerProject = vi.fn();
 const touchProject = vi.fn();
 const updateProjectEntry = vi.fn();
+const detectNativeModuleMismatch = vi.fn(() => undefined);
+const isNativeModuleMismatchError = vi.fn(() => false);
 
 vi.mock("../db/index.js", () => ({
   SCHEMA_VERSION: 2,
   closeDb,
   openDatabase,
+  detectNativeModuleMismatch,
+  isNativeModuleMismatchError,
 }));
 
 vi.mock("../db/project-index.js", () => ({
@@ -33,6 +36,10 @@ describe("projects route DB moves", () => {
     registerProject.mockReset();
     touchProject.mockReset();
     updateProjectEntry.mockReset();
+    detectNativeModuleMismatch.mockReset();
+    isNativeModuleMismatchError.mockReset();
+    detectNativeModuleMismatch.mockReturnValue(undefined);
+    isNativeModuleMismatchError.mockReturnValue(false);
     vi.resetModules();
   });
 
@@ -103,6 +110,7 @@ describe("projects route DB moves", () => {
     });
 
     const { default: projects } = await import("./projects.js");
+    const { handleError } = await import("../middleware/error.js");
     const app = new Hono();
     app.onError(handleError);
     app.route("/", projects);

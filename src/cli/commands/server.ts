@@ -1,5 +1,5 @@
 import { Command } from "commander";
-import { isDaemonRunning, startDaemon, stopDaemon } from "../../server/daemon.js";
+import { ensureLocalDaemonReady, isDaemonRunning, stopDaemon } from "../../server/daemon.js";
 import { DEFAULT_PORT } from "../../shared/constants.js";
 import { ApiClient } from "../api-client.js";
 import { getDataDir } from "../config.js";
@@ -14,24 +14,32 @@ serverCommand
   .action(async (opts: { port: string; data?: string }) => {
     const port = Number.parseInt(opts.port, 10);
     const dataDir = opts.data ?? getDataDir();
+    const url = `http://localhost:${port}`;
 
-    const existing = isDaemonRunning();
+    const existing = isDaemonRunning({ port, dataDir });
     if (existing.running) {
-      console.log(`Server already running on :${port} (PID: ${existing.pid})`);
-      return;
+      const client = new ApiClient(url);
+      try {
+        const health = await client.health();
+        console.log(`Server already running on :${port} (PID: ${existing.pid})`);
+        console.log(`  Version:  ${health.version}`);
+        return;
+      } catch {
+        console.log(`Server process exists (PID: ${existing.pid}) but is unhealthy. Recovering...`);
+      }
     }
 
     console.log("Starting Codepakt server...");
-    const pid = startDaemon({ port, dataDir });
+    const { pid } = await ensureLocalDaemonReady({ port, dataDir, baseUrl: url });
 
     // Poll health endpoint until ready (up to 10s)
-    const client = new ApiClient(`http://localhost:${port}`);
+    const client = new ApiClient(url);
     let healthy = false;
     for (let i = 0; i < 20; i++) {
       await new Promise((r) => setTimeout(r, 500));
       try {
         const health = await client.health();
-        console.log(`Server running on :${port} (PID: ${pid})`);
+        console.log(`Server running on :${port} (PID: ${pid ?? "unknown"})`);
         console.log(`  Version:  ${health.version}`);
         healthy = true;
         break;
@@ -61,15 +69,24 @@ serverCommand
   .command("status")
   .description("Check Codepakt server status")
   .action(async () => {
-    const { running, pid } = isDaemonRunning();
+    const port = Number(process.env.CPK_PORT) || DEFAULT_PORT;
+    const { running, pid } = isDaemonRunning({ port });
+    const client = new ApiClient(`http://localhost:${port}`);
+
     if (!running) {
-      console.log("Server is not running.");
-      return;
+      try {
+        const health = await client.health();
+        console.log(`Server running on :${port} (PID: unknown)`);
+        console.log(`  Version: ${health.version}`);
+        console.log(`  Uptime:  ${health.uptime_seconds}s`);
+        return;
+      } catch {
+        console.log("Server is not running.");
+        return;
+      }
     }
 
-    const port = Number(process.env.CPK_PORT) || DEFAULT_PORT;
     try {
-      const client = new ApiClient(`http://localhost:${port}`);
       const health = await client.health();
       console.log(`Server running on :${port} (PID: ${pid})`);
       console.log(`  Version: ${health.version}`);
