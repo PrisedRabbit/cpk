@@ -70,7 +70,8 @@ describe("projects route DB moves", () => {
     );
 
     expect(response.status).toBe(500);
-    expect(closeDb).not.toHaveBeenCalled();
+    expect(closeDb).toHaveBeenNthCalledWith(1, "proj-123");
+    expect(closeDb).toHaveBeenNthCalledWith(2, "/tmp/project/.codepakt/data.db");
     expect(updateProjectEntry).not.toHaveBeenCalled();
   });
 

@@ -71,10 +71,15 @@ body { font-family: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Robo
   padding: 4px 10px; border-radius: 4px; cursor: pointer; font-size: 11px; }
 .theme-toggle:hover { color: var(--text); border-color: var(--border); }
 .refresh-indicator { font-size: 10px; color: var(--text-muted); }
-.add-btn { background: var(--primary-container); color: #fff; border: none; padding: 6px 14px;
+  .add-btn { background: var(--primary-container); color: #fff; border: none; padding: 6px 14px;
   border-radius: 4px; font-size: 12px; font-weight: 600; cursor: pointer; display: flex; align-items: center; gap: 4px; }
-.add-btn:hover { opacity: 0.9; }
-[data-theme="light"] .add-btn { color: #fff; }
+  .add-btn:hover { opacity: 0.9; }
+  [data-theme="light"] .add-btn { color: #fff; }
+  .delete-btn { background: rgba(248,81,73,0.12); color: var(--status-blocked); border: 1px solid rgba(248,81,73,0.3);
+    padding: 6px 10px; border-radius: 4px; font-size: 11px; font-weight: 700; cursor: pointer; }
+  .delete-btn:hover { background: rgba(248,81,73,0.18); }
+  .btn:focus-visible, .delete-btn:focus-visible, .theme-toggle:focus-visible, .form-select:focus-visible,
+  .form-input:focus-visible, .form-textarea:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; }
 
 /* ===== LAYOUT ===== */
 .main { display: flex; flex: 1; overflow: hidden; }
@@ -243,9 +248,12 @@ body { font-family: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Robo
 <div class="topbar">
   <div class="topbar-left">
     <div class="logo">codepakt</div>
-    <select id="project-switcher" class="form-select" style="font-size:12px;max-width:200px;padding:4px 8px" onchange="switchProject(this.value)">
-      <option value="">Loading...</option>
-    </select>
+    <div style="display:flex;align-items:center;gap:8px">
+      <select id="project-switcher" class="form-select" style="font-size:12px;max-width:200px;padding:4px 8px" onchange="switchProject(this.value)">
+        <option value="">Loading...</option>
+      </select>
+      <button class="delete-btn" id="delete-project-btn" type="button" onclick="openDeleteModal()">Delete</button>
+    </div>
     <div class="stats" id="stats"></div>
   </div>
   <div class="topbar-right">
@@ -254,6 +262,8 @@ body { font-family: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Robo
     <button class="add-btn" id="add-task-btn" style="display:none" onclick="openCreateModal()">+ Add Task</button>
   </div>
 </div>
+
+<div id="project-delete-status" aria-live="polite" style="min-height:16px;font-size:11px;color:var(--text-muted);padding:4px 20px 0"></div>
 
 <!-- STALE WARNING BANNER -->
 <div id="stale-banner" style="display:none;background:rgba(210,153,34,0.15);border-bottom:1px solid rgba(210,153,34,0.3);padding:6px 20px;font-size:12px;color:var(--status-wip);display:none;align-items:center;gap:8px">
@@ -347,6 +357,22 @@ body { font-family: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Robo
   </div>
 </div>
 
+<!-- DELETE PROJECT MODAL -->
+<div class="modal-backdrop" id="delete-project-modal" role="dialog" aria-modal="true" aria-labelledby="delete-project-title" aria-describedby="delete-project-copy">
+  <div class="modal">
+    <h2 id="delete-project-title" style="color:var(--status-blocked)">Delete Project</h2>
+    <p style="font-size:13px;line-height:1.5;margin-bottom:10px" id="delete-project-copy">
+      This removes the dashboard entry and Codepakt data only. Your checkout directory stays on disk.
+    </p>
+    <div style="font-size:12px;color:var(--text-muted);margin-bottom:12px">Project: <span id="delete-project-name" class="mono"></span></div>
+    <div id="delete-error" style="min-height:16px;color:var(--status-blocked);font-size:12px" aria-live="polite"></div>
+    <div class="modal-actions">
+      <button type="button" class="btn btn-secondary" onclick="closeDeleteModal()">Cancel</button>
+      <button type="button" class="btn btn-danger" id="delete-confirm-btn" onclick="confirmDeleteProject()">Delete</button>
+    </div>
+  </div>
+</div>
+
 <script>
 // ===== STATE =====
 let projectId = null;
@@ -355,53 +381,100 @@ let allAgents = [];
 let selectedTask = null;
 let detailFormLocked = false;
 let lastFetch = Date.now();
+let projectsCache = [];
 
 const API = '/api';
 
 let refreshInterval = null;
+let introInterval = null;
 
 // ===== INIT =====
 async function init() {
   try {
-    const projects = await api('/projects');
-    const switcher = document.getElementById('project-switcher');
-    const addBtn = document.getElementById('add-task-btn');
-
-    if (projects.length > 0) {
-      // Show active workspace controls
-      switcher.style.display = '';
-      addBtn.style.display = '';
-
-      // Populate project switcher
-      switcher.innerHTML = projects.map(p =>
-        '<option value="' + p.id + '">' + esc(p.name || p.id.slice(0,8)) + '</option>'
-      ).join('');
-
-      // Select first project
-      projectId = projects[0].id;
-      switcher.value = projectId;
-
-      await refresh();
-      refreshInterval = setInterval(refresh, 30000);
-    } else {
-      // No projects — show intro screen, hide workspace controls
-      switcher.style.display = 'none';
-      addBtn.style.display = 'none';
-      document.getElementById('stats').style.display = 'none';
-      showIntro();
-    }
+    await loadProjects();
   } catch(e) {
     showIntro('Cannot connect to the Codepakt server.');
   }
 }
 
+function stopRefreshInterval() {
+  if (refreshInterval) {
+    clearInterval(refreshInterval);
+    refreshInterval = null;
+  }
+}
+
+function restartRefreshInterval() {
+  stopRefreshInterval();
+  refreshInterval = setInterval(refresh, 30000);
+}
+
+function stopIntroInterval() {
+  if (introInterval) {
+    clearInterval(introInterval);
+    introInterval = null;
+  }
+}
+
+async function loadProjects(preferredId) {
+  stopRefreshInterval();
+  const switcher = document.getElementById('project-switcher');
+  const addBtn = document.getElementById('add-task-btn');
+  const stats = document.getElementById('stats');
+  const deleteBtn = document.getElementById('delete-project-btn');
+  let data = [];
+  try {
+    const res = await fetch(API + '/projects');
+    const json = await res.json();
+    if (!res.ok) throw json;
+    data = json.data || [];
+  } catch (e) {
+    showIntro('Cannot connect to the Codepakt server.');
+    return;
+  }
+
+  projectsCache = data;
+
+  if (!projectsCache || projectsCache.length === 0) {
+    projectId = null;
+    stopRefreshInterval();
+    closeDetail();
+    switcher.style.display = 'none';
+    addBtn.style.display = 'none';
+    if (deleteBtn) deleteBtn.style.display = 'none';
+    stats.style.display = 'none';
+    showIntro();
+    return;
+  }
+
+  switcher.style.display = '';
+  addBtn.style.display = '';
+  if (deleteBtn) deleteBtn.style.display = '';
+  stats.style.display = '';
+
+  const preferred = preferredId ? projectsCache.find((p) => p.id === preferredId) : null;
+  const existing = projectId ? projectsCache.find((p) => p.id === projectId) : null;
+  const next = preferred || existing || projectsCache[0];
+  projectId = next.id;
+
+  switcher.innerHTML = projectsCache
+    .map((p) => '<option value=\"' + p.id + '\">' + esc(p.name || p.id.slice(0, 8)) + '</option>')
+    .join('');
+  switcher.value = projectId;
+
+  await refresh();
+  restartRefreshInterval();
+}
+
 function switchProject(id) {
   if (!id || id === projectId) return;
   projectId = id;
-  if (refreshInterval) clearInterval(refreshInterval);
+  stopRefreshInterval();
   closeDetail();
   refresh().then(() => {
-    refreshInterval = setInterval(refresh, 30000);
+    if (projectId === id) {
+      restartRefreshInterval();
+    }
   });
 }
 
@@ -436,6 +509,8 @@ async function refresh() {
     // Stale project ID — reload project list and switch
     if (e && e.error === 'project_not_found') {
       console.warn('Project not found, reloading project list...');
+      stopRefreshInterval();
+      closeDetail();
       await loadProjects();
       return;
     }
@@ -737,6 +812,48 @@ async function markUnblocked(id) {
   try { await api('/tasks/' + id + '/unblock', { method: 'POST', body: '{}' }); await refresh(); } catch(e) { alert(e.message); }
 }
 
+// ===== PROJECT DELETE =====
+function openDeleteModal() {
+  const modal = document.getElementById('delete-project-modal');
+  const nameEl = document.getElementById('delete-project-name');
+  const errEl = document.getElementById('delete-error');
+  const statusEl = document.getElementById('project-delete-status');
+  const current = projectsCache.find((p) => p.id === projectId);
+  if (nameEl) nameEl.textContent = current ? current.name || current.id : projectId || 'unknown';
+  if (errEl) errEl.textContent = '';
+  if (statusEl) statusEl.textContent = '';
+  modal?.classList.add('open');
+}
+
+function closeDeleteModal() {
+  const modal = document.getElementById('delete-project-modal');
+  modal?.classList.remove('open');
+}
+
+async function confirmDeleteProject() {
+  const btn = document.getElementById('delete-confirm-btn');
+  const errEl = document.getElementById('delete-error');
+  const statusEl = document.getElementById('project-delete-status');
+  if (!projectId) return;
+  try {
+    stopRefreshInterval();
+    if (btn) { btn.disabled = true; btn.textContent = 'Deleting...'; }
+    if (errEl) errEl.textContent = '';
+    await api('/projects/' + projectId, { method: 'DELETE' });
+    closeDetail();
+    if (statusEl) statusEl.textContent = 'Project removed. Dashboard data moved to trash.';
+    await loadProjects();
+    closeDeleteModal();
+  } catch (e) {
+    const message = e && (e.message || e.error) ? (e.message || e.error) : 'Failed to delete project';
+    if (errEl) errEl.textContent = message;
+    if (statusEl) statusEl.textContent = message;
+    if (projectId) restartRefreshInterval();
+  } finally {
+    if (btn) { btn.disabled = false; btn.textContent = 'Delete'; }
+  }
+}
+
 // ===== ADD NOTE =====
 async function addNote(id) {
   const input = document.getElementById('note-input');
@@ -884,6 +1001,8 @@ function showEmpty() {
 }
 
 function showIntro(errorMsg) {
+  stopRefreshInterval();
+  stopIntroInterval();
   // Hide the board area entirely and show intro
   document.querySelector('.main').innerHTML =
     '<div style="display:flex;align-items:center;justify-content:center;flex:1;padding:40px">' +
@@ -909,7 +1028,7 @@ function showIntro(errorMsg) {
     '</div></div>';
 
   // Keep polling for projects to appear
-  setInterval(async () => {
+  introInterval = setInterval(async () => {
     try {
       const projects = await fetch(API + '/projects').then(r => r.json()).then(j => j.data);
       if (projects && projects.length > 0) {

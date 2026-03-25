@@ -3,7 +3,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { closeAllDbs } from "../db/index.js";
-import { getProjectEntry } from "../db/project-index.js";
+import { getProjectEntry, listProjectEntries } from "../db/project-index.js";
 import { createApp } from "../index.js";
 
 describe("projects routes", () => {
@@ -187,5 +187,92 @@ describe("projects routes", () => {
     } finally {
       rmSync(projectDir, { recursive: true, force: true });
     }
+  });
+
+  it("deletes a hosted project and moves db to trash", async () => {
+    const createRes = await app.request(
+      new Request("http://localhost/api/projects", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ name: "remote-project" }),
+      }),
+    );
+    const created = (await createRes.json()) as { data: { id: string } };
+    const entry = getProjectEntry(created.data.id)!;
+
+    const deleteRes = await app.request(
+      new Request(`http://localhost/api/projects/${created.data.id}`, {
+        method: "DELETE",
+      }),
+    );
+
+    expect(deleteRes.status).toBe(200);
+    const body = (await deleteRes.json()) as { data: { id: string; trash_path: string } };
+    expect(body.data.id).toBe(created.data.id);
+    expect(listProjectEntries().find((p) => p.id === created.data.id)).toBeUndefined();
+    expect(existsSync(entry.db_path)).toBe(false);
+    expect(existsSync(body.data.trash_path)).toBe(true);
+    expect(existsSync(join(body.data.trash_path, "data.db"))).toBe(true);
+  });
+
+  it("deletes a local project without removing checkout", async () => {
+    const projectDir = mkdtempSync(join(tmpdir(), "cpk-local-project-"));
+
+    try {
+      const createRes = await app.request(
+        new Request("http://localhost/api/projects", {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ name: "local-project", path: projectDir }),
+        }),
+      );
+      const created = (await createRes.json()) as { data: { id: string } };
+      const entry = getProjectEntry(created.data.id)!;
+
+      const deleteRes = await app.request(
+        new Request(`http://localhost/api/projects/${created.data.id}`, { method: "DELETE" }),
+      );
+
+      expect(deleteRes.status).toBe(200);
+      const body = (await deleteRes.json()) as { data: { trash_path: string } };
+      expect(listProjectEntries().find((p) => p.id === created.data.id)).toBeUndefined();
+      expect(existsSync(entry.db_path)).toBe(false);
+      expect(existsSync(projectDir)).toBe(true);
+      expect(existsSync(body.data.trash_path)).toBe(true);
+      expect(existsSync(join(body.data.trash_path, "data.db"))).toBe(true);
+    } finally {
+      rmSync(projectDir, { recursive: true, force: true });
+    }
+  });
+
+  it("returns 404 when deleting an unknown project", async () => {
+    const res = await app.request(new Request("http://localhost/api/projects/does-not-exist", { method: "DELETE" }));
+    expect(res.status).toBe(404);
+  });
+
+  it("fails delete when database file is missing and keeps index entry", async () => {
+    const createRes = await app.request(
+      new Request("http://localhost/api/projects", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ name: "remote-project" }),
+      }),
+    );
+    const created = (await createRes.json()) as { data: { id: string } };
+    const entry = getProjectEntry(created.data.id)!;
+
+    closeAllDbs();
+    rmSync(entry.db_path, { force: true });
+    rmSync(`${entry.db_path}-wal`, { force: true });
+    rmSync(`${entry.db_path}-shm`, { force: true });
+
+    const res = await app.request(
+      new Request(`http://localhost/api/projects/${created.data.id}`, { method: "DELETE" }),
+    );
+
+    expect(res.status).toBe(500);
+    expect(getProjectEntry(created.data.id)).toBeDefined();
+    const trashRoot = join(tempHome, ".codepakt", "trash");
+    expect(existsSync(trashRoot)).toBe(false);
   });
 });

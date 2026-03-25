@@ -30,5 +30,9 @@ describe("dashboard route", () => {
     expect(html).toContain("task-error-");
     expect(html).toContain(">Save<");
     expect(html).toContain(">Cancel<");
+    expect(html).toContain("delete-project-btn");
+    expect(html).toContain("delete-project-modal");
+    expect(html).toContain("project-delete-status");
+    expect(html).toContain("This removes the dashboard entry and Codepakt data only");
   });
 });
