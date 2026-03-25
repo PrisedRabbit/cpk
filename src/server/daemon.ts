@@ -6,7 +6,6 @@ import { execFileSync, fork } from "node:child_process";
 import { existsSync, mkdirSync, openSync, readFileSync, unlinkSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
-import type { NativeModuleMismatchDetails } from "./db/index.js";
 import {
   DEFAULT_DATA_DIR,
   DEFAULT_PORT,
@@ -15,6 +14,7 @@ import {
   getConfiguredDataDir,
   resolveDataDir,
 } from "../shared/constants.js";
+import type { NativeModuleMismatchDetails } from "./db/index.js";
 
 interface NativeMismatchLogPayload {
   error: "native_module_mismatch";
@@ -189,11 +189,12 @@ export function startDaemon(options?: { port?: number; dataDir?: string }): numb
   // In dev (tsx): src/server/start.ts
   const pkgRoot = getPackageRoot();
 
-  // Prefer built JS, fall back to TS source (dev mode)
-  const startScriptDist = join(pkgRoot, "dist", "server", "start.js");
+  // Prefer TS source when the repo is present so daemon starts current code.
+  // Fall back to built JS for packaged installs where src/ is absent.
   const startScriptSrc = join(pkgRoot, "src", "server", "start.ts");
+  const startScriptDist = join(pkgRoot, "dist", "server", "start.js");
 
-  const scriptPath = existsSync(startScriptDist) ? startScriptDist : startScriptSrc;
+  const scriptPath = existsSync(startScriptSrc) ? startScriptSrc : startScriptDist;
 
   // Open log file for stdout/stderr
   const logFd = openSync(logPath, "a");
@@ -383,6 +384,9 @@ export async function ensureLocalDaemonReady(options?: {
   const port = getPort(options?.port);
   const baseUrl = options?.baseUrl ?? `http://localhost:${port}`;
   const startupTimeoutMs = options?.startupTimeoutMs ?? 10000;
+  const packageRoot = getPackageRoot();
+  const sourceStartScript = join(packageRoot, "src", "server", "start.ts");
+  const preferSourceDaemon = existsSync(sourceStartScript);
 
   if (!existsSync(dataDir)) {
     mkdirSync(dataDir, { recursive: true });
@@ -396,6 +400,7 @@ export async function ensureLocalDaemonReady(options?: {
 
   const listenerPid = getListeningPid(port);
   const listenerIsCodepakt = listenerPid !== undefined && isCodepaktProcess(listenerPid);
+  let shouldRestartDaemon = false;
 
   if (health.reachable && health.ready) {
     if (listenerPid !== undefined && !listenerIsCodepakt) {
@@ -403,16 +408,26 @@ export async function ensureLocalDaemonReady(options?: {
     }
 
     if (listenerPid !== undefined) {
-      writePidFile(listenerPid, dataDir);
-      return { pid: listenerPid };
+      const listenerCommand = readProcessCommand(listenerPid);
+      const listenerIsSourceBacked = listenerCommand.includes(sourceStartScript);
+      if (preferSourceDaemon && !listenerIsSourceBacked) {
+        shouldRestartDaemon = true;
+        await terminateProcess(listenerPid);
+        clearPidFile(dataDir);
+      } else {
+        writePidFile(listenerPid, dataDir);
+        return { pid: listenerPid };
+      }
     }
 
-    if (pidFromFile !== undefined) {
+    if (!shouldRestartDaemon && pidFromFile !== undefined) {
       writePidFile(pidFromFile, dataDir);
       return { pid: pidFromFile };
     }
 
-    return {};
+    if (!shouldRestartDaemon) {
+      return {};
+    }
   }
 
   if (listenerPid !== undefined && listenerIsCodepakt) {
@@ -438,7 +453,6 @@ export async function ensureLocalDaemonReady(options?: {
   }
 
   const logPath = join(dataDir, LOG_FILE);
-  const packageRoot = getPackageRoot();
   let startedPid = startDaemon({ port, dataDir });
   let ready = await waitForHealthyCodepakt(baseUrl, startupTimeoutMs);
 

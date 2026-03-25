@@ -37,6 +37,7 @@ export interface Task {
   assignee: string | null;
   priority: Priority;
   epic: string | null;
+  tags: string[];
   capabilities: string[];
   depends_on: string[];
   deps_met: boolean;

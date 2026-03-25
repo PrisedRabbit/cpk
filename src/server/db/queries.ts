@@ -44,6 +44,7 @@ function mapTask(row: Record<string, unknown>): Task {
     assignee: (row.assignee as string) ?? null,
     priority: row.priority as Task["priority"],
     epic: (row.epic as string) ?? null,
+    tags: parseJsonArray(row.tags),
     capabilities: parseJsonArray(row.capabilities),
     depends_on: parseJsonArray(row.depends_on),
     deps_met: boolFromInt(row.deps_met),
@@ -151,8 +152,8 @@ export function createTask(projectId: string, input: TaskCreateInput): Task {
 
     const id = randomUUID();
     db.prepare(
-      `INSERT INTO tasks (id, project_id, task_number, title, description, status, priority, epic, capabilities, depends_on, deps_met, acceptance_criteria, context_refs, verify)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      `INSERT INTO tasks (id, project_id, task_number, title, description, status, priority, epic, tags, capabilities, depends_on, deps_met, acceptance_criteria, context_refs, verify)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     ).run(
       id,
       projectId,
@@ -162,6 +163,7 @@ export function createTask(projectId: string, input: TaskCreateInput): Task {
       status,
       input.priority,
       input.epic ?? null,
+      JSON.stringify(input.tags ?? []),
       JSON.stringify(input.capabilities ?? []),
       JSON.stringify(input.depends_on ?? []),
       depsMet ? 1 : 0,
@@ -401,6 +403,10 @@ export function updateTask(
     if (input.epic !== undefined) {
       sets.push("epic = ?");
       params.push(input.epic);
+    }
+    if (input.tags !== undefined) {
+      sets.push("tags = ?");
+      params.push(JSON.stringify(input.tags));
     }
     if (input.capabilities !== undefined) {
       sets.push("capabilities = ?");

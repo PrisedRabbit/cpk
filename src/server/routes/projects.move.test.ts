@@ -12,7 +12,7 @@ const detectNativeModuleMismatch = vi.fn(() => undefined);
 const isNativeModuleMismatchError = vi.fn(() => false);
 
 vi.mock("../db/index.js", () => ({
-  SCHEMA_VERSION: 2,
+  SCHEMA_VERSION: 3,
   closeDb,
   openDatabase,
   detectNativeModuleMismatch,

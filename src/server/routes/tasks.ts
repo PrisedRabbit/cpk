@@ -8,6 +8,7 @@ import {
   TaskCreateSchema,
   TaskListQuerySchema,
   TaskPickupSchema,
+  TaskUpdateSchema,
 } from "../../shared/schemas.js";
 import * as db from "../db/queries.js";
 import { BadRequestError, NotFoundError } from "../middleware/error.js";
@@ -105,14 +106,20 @@ tasks.patch("/tasks/:id", async (c) => {
   if (!existing) throw new NotFoundError("Task not found");
 
   const body = await c.req.json();
-  const input = body as Record<string, unknown>;
+  const input = TaskUpdateSchema.parse(body);
 
-  // Validate status transitions if status is being changed
-  if (input.status && typeof input.status === "string") {
+  // Keep same-status no-op only for status-only updates.
+  if (
+    input.status !== undefined &&
+    Object.keys(input).length === 1 &&
+    input.status === existing.status
+  ) {
+    return c.json({ data: existing });
+  }
+
+  // Validate status transitions if status is being changed.
+  if (input.status !== undefined && input.status !== existing.status) {
     const newStatus = input.status as TaskStatus;
-    if (newStatus === existing.status) {
-      return c.json({ data: existing });
-    }
     const allowed = STATUS_TRANSITIONS[existing.status];
     if (!allowed.includes(newStatus)) {
       throw new BadRequestError(

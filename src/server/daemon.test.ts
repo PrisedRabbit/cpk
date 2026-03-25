@@ -73,3 +73,37 @@ describe("daemon liveness reconciliation", () => {
     expect(readFileSync(join(tempDir, "server.pid"), "utf-8").trim()).toBe("95311");
   });
 });
+
+describe("daemon start script selection", () => {
+  it("prefers source start.ts when the repo is available", async () => {
+    const fork = vi.fn(() => ({ pid: 4242, unref: vi.fn(), disconnect: vi.fn() }));
+    const execFileSync = vi.fn((command: string) => {
+      if (command === "lsof") {
+        throw new Error("no listener");
+      }
+      return "";
+    });
+
+    vi.doMock("node:child_process", async () => {
+      const actual =
+        await vi.importActual<typeof import("node:child_process")>("node:child_process");
+      return {
+        ...actual,
+        fork,
+        execFileSync,
+      };
+    });
+
+    const { startDaemon } = await import("./daemon.js");
+    const pid = startDaemon({ port: 54321, dataDir: tempDir });
+
+    expect(pid).toBe(4242);
+    expect(fork).toHaveBeenCalledWith(
+      expect.stringContaining("/src/server/start.ts"),
+      [],
+      expect.objectContaining({
+        execArgv: ["--import", "tsx"],
+      }),
+    );
+  });
+});

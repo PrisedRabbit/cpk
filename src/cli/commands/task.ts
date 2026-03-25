@@ -11,6 +11,15 @@ import {
 
 export const taskCommand = new Command("task").description("Manage tasks");
 
+function parseCsvList(value?: string): string[] {
+  return value
+    ? value
+        .split(",")
+        .map((s: string) => s.trim())
+        .filter(Boolean)
+    : [];
+}
+
 taskCommand
   .command("add")
   .description("Create a new task (or batch create from JSON file)")
@@ -18,6 +27,7 @@ taskCommand
   .option("-d, --description <desc>", "Task description")
   .option("-p, --priority <p>", "Priority: P0, P1, P2", "P1")
   .option("-e, --epic <epic>", "Epic/feature area name")
+  .option("--tags <tags>", "Comma-separated tags")
   .option("--capabilities <caps>", "Required capabilities (comma-separated, e.g. code-write,test)")
   .option("--depends-on <deps>", "Comma-separated task numbers (e.g. T-001,T-002)")
   .option("--verify <cmd>", "Verification command")
@@ -50,10 +60,9 @@ taskCommand
         description: opts.description,
         priority: opts.priority,
         epic: opts.epic,
-        capabilities: opts.capabilities
-          ? opts.capabilities.split(",").map((s: string) => s.trim())
-          : [],
-        depends_on: opts.dependsOn ? opts.dependsOn.split(",").map((s: string) => s.trim()) : [],
+        tags: parseCsvList(opts.tags),
+        capabilities: parseCsvList(opts.capabilities),
+        depends_on: parseCsvList(opts.dependsOn),
         verify: opts.verify,
         acceptance_criteria: opts.acceptanceCriteria ?? [],
         context_refs: opts.contextRefs ?? [],
@@ -100,6 +109,7 @@ taskCommand
   .option("-e, --epic <epic>", "Set epic")
   .option("--title <title>", "Update title")
   .option("--description <desc>", "Update description")
+  .option("--tags <tags>", "Comma-separated tags")
   .option("--verify <cmd>", "Update verify command")
   .option("--human", "Human-readable output")
   .action(
@@ -112,6 +122,7 @@ taskCommand
         epic?: string;
         title?: string;
         description?: string;
+        tags?: string;
         verify?: string;
         human?: boolean;
       },
@@ -127,11 +138,12 @@ taskCommand
         if (opts.epic !== undefined) updates.epic = opts.epic;
         if (opts.title !== undefined) updates.title = opts.title;
         if (opts.description !== undefined) updates.description = opts.description;
+        if (opts.tags !== undefined) updates.tags = parseCsvList(opts.tags);
         if (opts.verify !== undefined) updates.verify = opts.verify;
 
         if (Object.keys(updates).length === 0) {
           console.error(
-            "No fields to update. Use --status, --priority, --assignee, --epic, --title, --description, or --verify.",
+            "No fields to update. Use --status, --priority, --assignee, --epic, --title, --description, --tags, or --verify.",
           );
           process.exit(1);
         }

@@ -16,19 +16,6 @@ serverCommand
     const dataDir = opts.data ?? getDataDir();
     const url = `http://localhost:${port}`;
 
-    const existing = isDaemonRunning({ port, dataDir });
-    if (existing.running) {
-      const client = new ApiClient(url);
-      try {
-        const health = await client.health();
-        console.log(`Server already running on :${port} (PID: ${existing.pid})`);
-        console.log(`  Version:  ${health.version}`);
-        return;
-      } catch {
-        console.log(`Server process exists (PID: ${existing.pid}) but is unhealthy. Recovering...`);
-      }
-    }
-
     console.log("Starting Codepakt server...");
     const { pid } = await ensureLocalDaemonReady({ port, dataDir, baseUrl: url });
 

@@ -34,7 +34,7 @@ cpk init --name my-project --db-dir /srv/codepakt/projects
 cpk init --name my-project --prd ./PRD.md
 
 # Add tasks
-cpk task add --title "Set up auth" --epic "Auth" --priority P0
+cpk task add --title "Set up auth" --epic "Auth" --tags "auth,jwt" --priority P0
 
 # Agent picks up work (atomic, no registration needed)
 cpk task pickup --agent backend
@@ -71,8 +71,13 @@ cpk init --name my-app --prd PRD.md  # Initialize + store PRD in knowledge base
 ```bash
 cpk task add --title "..." --priority P1       # Create task (P0, P1, P2)
 cpk task add --title "..." --depends-on T-001  # With dependency
-cpk task add --title "..." --verify "pnpm test" --epic "Auth"
+cpk task add --title "..." --verify "pnpm test" --epic "Auth" --tags "backend,auth"
 cpk task add --batch tasks.json                # Bulk create from JSON
+# tasks.json example:
+# [
+#   {"title":"Set up auth","priority":"P0","tags":["auth","jwt"]},
+#   {"title":"Write tests","priority":"P1","tags":["test"]}
+# ]
 
 cpk task list                          # List all tasks
 cpk task list --status open            # Filter by status
@@ -83,6 +88,7 @@ cpk task show T-001                    # Full task details
 cpk task update T-001 --status open    # Update status (any → any)
 cpk task update T-001 --priority P0    # Update priority
 cpk task update T-001 --assignee claude  # Reassign
+cpk task update T-001 --tags "auth,jwt"  # Set tags
 
 cpk task pickup --agent backend        # Claim highest-priority available task
 cpk task pickup --agent backend --id T-003  # Claim specific task

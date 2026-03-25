@@ -82,4 +82,41 @@ describe("tasks routes", () => {
     expect(body.data.status).toBe("open");
     expect(updateTask).not.toHaveBeenCalled();
   });
+
+  it("updates tags when status stays the same but other fields change", async () => {
+    getTask.mockReturnValue({
+      id: "task-1",
+      status: "open",
+      title: "Tagged task",
+      tags: ["alpha"],
+    });
+    updateTask.mockImplementation((_projectId, _taskId, input) => ({
+      id: "task-1",
+      status: input.status ?? "open",
+      title: "Tagged task",
+      tags: (input.tags as string[]) ?? ["alpha"],
+    }));
+
+    const { default: tasks } = await import("./tasks.js");
+    const { handleError } = await import("../middleware/error.js");
+    const app = new Hono();
+    app.onError(handleError);
+    app.route("/", tasks);
+
+    const response = await app.request(
+      new Request("http://localhost/tasks/task-1?project_id=proj-1", {
+        method: "PATCH",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ status: "open", tags: ["release", "ops"] }),
+      }),
+    );
+
+    expect(response.status).toBe(200);
+    const body = (await response.json()) as { data: { tags: string[] } };
+    expect(body.data.tags).toEqual(["release", "ops"]);
+    expect(updateTask).toHaveBeenCalledWith("proj-1", "task-1", {
+      status: "open",
+      tags: ["release", "ops"],
+    });
+  });
 });

@@ -1,6 +1,10 @@
 import { randomUUID } from "node:crypto";
+import { mkdtempSync, rmSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import Database from "better-sqlite3";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { closeDb, initTestDatabase } from "./index.js";
+import { closeDb, initDatabase, initTestDatabase } from "./index.js";
 import * as db from "./queries.js";
 
 /**
@@ -109,6 +113,86 @@ describe("queries", () => {
       expect(task.acceptance_criteria).toEqual(["must pass tests", "must handle errors"]);
       expect(task.verify).toBe("pnpm test");
       expect(task.notes).toEqual([]);
+    });
+
+    it("stores and updates tags", () => {
+      const task = db.createTask(projectId, {
+        title: "Tagged task",
+        priority: "P1",
+        tags: ["alpha", "beta"],
+        depends_on: [],
+        acceptance_criteria: [],
+        status: "open",
+      });
+
+      expect(task.tags).toEqual(["alpha", "beta"]);
+
+      const updated = db.updateTask(projectId, task.id, { tags: ["release", "ops"] });
+      expect(updated?.tags).toEqual(["release", "ops"]);
+    });
+
+    it("migrates existing task rows to include tags", () => {
+      const legacyDir = mkdtempSync(join(tmpdir(), "cpk-legacy-db-"));
+      const legacyPath = join(legacyDir, "data.db");
+      const legacyDb = new Database(legacyPath);
+      legacyDb.exec(`
+        CREATE TABLE schema_version (version INTEGER NOT NULL);
+        CREATE TABLE metadata (key TEXT PRIMARY KEY, value TEXT NOT NULL);
+        CREATE TABLE tasks (
+          id TEXT PRIMARY KEY,
+          project_id TEXT NOT NULL,
+          task_number TEXT NOT NULL,
+          title TEXT NOT NULL,
+          description TEXT,
+          status TEXT NOT NULL DEFAULT 'open',
+          assignee TEXT,
+          priority TEXT NOT NULL DEFAULT 'P1',
+          epic TEXT,
+          capabilities TEXT NOT NULL DEFAULT '[]',
+          depends_on TEXT NOT NULL DEFAULT '[]',
+          deps_met INTEGER NOT NULL DEFAULT 1,
+          acceptance_criteria TEXT NOT NULL DEFAULT '[]',
+          context_refs TEXT NOT NULL DEFAULT '[]',
+          verify TEXT,
+          notes TEXT NOT NULL DEFAULT '[]',
+          blocker_reason TEXT,
+          created_at TEXT NOT NULL DEFAULT (datetime('now')),
+          updated_at TEXT NOT NULL DEFAULT (datetime('now')),
+          started_at TEXT,
+          completed_at TEXT,
+          UNIQUE(project_id, task_number)
+        );
+        INSERT INTO schema_version (version) VALUES (2);
+        INSERT INTO metadata (key, value) VALUES ('next_task_number', '2');
+        INSERT INTO tasks (
+          id, project_id, task_number, title, description, status, assignee, priority, epic,
+          capabilities, depends_on, deps_met, acceptance_criteria, context_refs, verify, notes,
+          blocker_reason, created_at, updated_at, started_at, completed_at
+        ) VALUES (
+          'task-1', 'proj-1', 'T-001', 'Legacy task', NULL, 'open', NULL, 'P1', NULL,
+          '[]', '[]', 1, '[]', '[]', NULL, '[]', NULL, datetime('now'), datetime('now'), NULL, NULL
+        );
+      `);
+      legacyDb.close();
+
+      closeDb();
+      const opened = initDatabase(legacyPath);
+      const row = opened.prepare("SELECT tags FROM tasks WHERE id = 'task-1'").get() as {
+        tags: string;
+      };
+      expect(JSON.parse(row.tags)).toEqual([]);
+      const task = db.createTask("proj-1", {
+        title: "After migration",
+        priority: "P0",
+        tags: ["migrated"],
+        depends_on: [],
+        acceptance_criteria: [],
+        status: "open",
+      });
+      expect(task.tags).toEqual(["migrated"]);
+
+      closeDb();
+      rmSync(legacyDir, { recursive: true, force: true });
     });
 
     it("lists tasks filtered by status", () => {

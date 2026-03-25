@@ -157,6 +157,12 @@ body { font-family: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Robo
   padding: 2px 6px; border-radius: 3px; cursor: pointer; }
 .dep-chip { display: inline-block; padding: 2px 8px; background: var(--surface); border-radius: 3px;
   font-size: 11px; margin-right: 4px; cursor: pointer; color: var(--primary); }
+.tag-chip { display: inline-flex; align-items: center; padding: 2px 8px; background: var(--surface);
+  border-radius: 999px; font-size: 10px; margin-right: 4px; color: var(--text-secondary);
+  border: 1px solid var(--border-subtle); }
+.tags-list { display: flex; flex-wrap: wrap; gap: 4px; }
+.tags-editor { display: none; margin-top: 8px; gap: 8px; align-items: center; flex-wrap: wrap; }
+.tags-editor.open { display: flex; }
 .note-item { padding: 6px 0; border-bottom: 1px solid var(--border-subtle); font-size: 12px; }
 .detail-actions { display: flex; gap: 8px; margin-top: 16px; padding-top: 16px; border-top: 1px solid var(--border-subtle); }
 .btn { padding: 8px 16px; border-radius: 4px; font-size: 12px; font-weight: 600; cursor: pointer; border: none; }
@@ -165,6 +171,9 @@ body { font-family: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Robo
 .btn-secondary { background: var(--surface); color: var(--text); border: 1px solid var(--border-subtle); }
 .status-select, .priority-select { background: var(--surface); color: var(--text); border: 1px solid var(--border-subtle);
   padding: 4px 8px; border-radius: 4px; font-size: 12px; }
+.tags-input { min-width: 240px; flex: 1; background: var(--surface); color: var(--text); border: 1px solid var(--border-subtle);
+  padding: 8px 10px; border-radius: 4px; font-size: 12px; font-family: inherit; }
+.tags-input:focus { outline: none; border-color: var(--primary); }
 
 /* ===== CREATE MODAL ===== */
 .modal-backdrop { position: fixed; inset: 0; background: rgba(0,0,0,0.5); backdrop-filter: blur(4px);
@@ -311,6 +320,10 @@ body { font-family: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Robo
       <div class="form-group">
         <label class="form-label">Epic</label>
         <input class="form-input" name="epic" placeholder="Feature area (optional)" />
+      </div>
+      <div class="form-group">
+        <label class="form-label">Tags</label>
+        <input class="form-input" name="tags" placeholder="auth, jwt, backend" />
       </div>
       <div class="form-group">
         <label class="form-label">Depends On</label>
@@ -489,9 +502,11 @@ function renderBoard(tasks, board) {
 function renderCard(t) {
   const pColor = t.priority === 'P0' ? 'var(--priority-p0)' : t.priority === 'P1' ? 'var(--priority-p1)' : 'var(--priority-p2)';
   const pBg = t.priority === 'P0' ? 'rgba(248,81,73,0.1)' : t.priority === 'P1' ? 'rgba(210,153,34,0.1)' : 'rgba(139,149,158,0.1)';
+  const tags = (t.tags || []).slice(0, 3);
   return '<div class="card ' + t.status + '" draggable="true" ondragstart="onDragStart(event,\\'' + t.id + '\\')" onclick="openDetail(\\'' + t.id + '\\')">' +
     '<div class="card-top"><span class="card-title">' + esc(t.title) + '</span>' +
     '<span class="priority-badge mono" style="color:' + pColor + ';background:' + pBg + '">' + t.priority + '</span></div>' +
+    (tags.length > 0 ? '<div class="tags-list" style="margin-top:6px">' + tags.map(tag => '<span class="tag-chip">' + esc(tag) + '</span>').join('') + '</div>' : '') +
     '<div class="card-bottom"><span class="card-id mono">' + t.task_number + '</span>' +
     (t.assignee ? '<span class="card-assignee"><span class="dot"></span>' + esc(t.assignee) + '</span>' :
       '<span class="card-assignee" style="opacity:0.4">unassigned</span>') +
@@ -580,6 +595,20 @@ function renderDetail(t) {
   if (t.epic) html += '<div><span class="detail-label">Epic</span><br><span style="font-size:12px">' + esc(t.epic) + '</span></div>';
   html += '</div>';
 
+  html += '<div class="detail-row"><div class="detail-label">Tags</div>';
+  html += '<div id="tags-view-' + t.id + '" class="tags-list">' +
+    ((t.tags && t.tags.length > 0)
+      ? t.tags.map(tag => '<span class="tag-chip">' + esc(tag) + '</span>').join('')
+      : '<span style="color:var(--text-muted);font-size:12px">No tags</span>') +
+    '</div>';
+  html += '<div id="tags-editor-' + t.id + '" class="tags-editor">';
+  html += '<input class="tags-input" id="tags-input-' + t.id + '" value="' + esc((t.tags || []).join(", ")) + '" placeholder="auth, jwt, backend" />';
+  html += '<button class="btn btn-secondary" type="button" onclick="saveTags(\\'' + t.id + '\\')">Save Tags</button>';
+  html += '<button class="btn btn-secondary" type="button" onclick="cancelTagsEdit(\\'' + t.id + '\\')">Cancel</button>';
+  html += '</div>';
+  html += '<button class="btn btn-secondary" type="button" style="margin-top:8px" onclick="editTags(\\'' + t.id + '\\')">Edit Tags</button>';
+  html += '</div>';
+
   if (t.description) {
     html += '<div class="detail-row"><div class="detail-label">Description</div><div class="detail-value">' + esc(t.description) + '</div></div>';
   }
@@ -656,6 +685,34 @@ async function addNote(id) {
   } catch(e) { alert(e.message); }
 }
 
+function parseCsv(value) {
+  const text = typeof value === 'string' ? value : value ? String(value) : '';
+  return text.split(',').map(s => s.trim()).filter(Boolean);
+}
+
+function editTags(id) {
+  const view = document.getElementById('tags-view-' + id);
+  const editor = document.getElementById('tags-editor-' + id);
+  if (view) view.style.display = 'none';
+  if (editor) editor.classList.add('open');
+}
+
+function cancelTagsEdit(id) {
+  const view = document.getElementById('tags-view-' + id);
+  const editor = document.getElementById('tags-editor-' + id);
+  if (view) view.style.display = '';
+  if (editor) editor.classList.remove('open');
+}
+
+async function saveTags(id) {
+  const input = document.getElementById('tags-input-' + id);
+  const tags = parseCsv(input ? input.value : '');
+  try {
+    await api('/tasks/' + id, { method: 'PATCH', body: JSON.stringify({ tags }) });
+    await refresh();
+  } catch(e) { alert(e.message || 'Failed to update tags'); }
+}
+
 // ===== DRAG AND DROP =====
 let dragTaskId = null;
 
@@ -710,7 +767,8 @@ async function handleCreateTask(e) {
     priority: fd.get('priority'),
     status: fd.get('status'),
     epic: fd.get('epic') || undefined,
-    depends_on: fd.get('depends_on') ? fd.get('depends_on').split(',').map(s => s.trim()).filter(Boolean) : [],
+    tags: parseCsv(fd.get('tags')),
+    depends_on: parseCsv(fd.get('depends_on')),
     verify: fd.get('verify') || undefined,
   };
   try {

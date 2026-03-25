@@ -100,7 +100,10 @@ function extractAddonPath(message: string): string | null {
   return addonPath ?? null;
 }
 
-function extractArchPair(message: string): { addonArch: string | null; requiredArch: string | null } {
+function extractArchPair(message: string): {
+  addonArch: string | null;
+  requiredArch: string | null;
+} {
   const pair = message.match(/have '([^']+)', need '([^']+)'/);
   return {
     addonArch: pair?.[1] ?? null,
@@ -160,7 +163,7 @@ export function preflightDatabaseRuntime(): void {
   }
 }
 
-export const SCHEMA_VERSION = 2;
+export const SCHEMA_VERSION = 3;
 
 const SCHEMA_SQL = `
 -- schema_version
@@ -187,6 +190,7 @@ CREATE TABLE IF NOT EXISTS tasks (
     priority TEXT NOT NULL DEFAULT 'P1'
         CHECK (priority IN ('P0','P1','P2')),
     epic TEXT,
+    tags TEXT NOT NULL DEFAULT '[]',
     capabilities TEXT NOT NULL DEFAULT '[]',
     depends_on TEXT NOT NULL DEFAULT '[]',
     deps_met INTEGER NOT NULL DEFAULT 1,
@@ -268,6 +272,15 @@ function migrateSchema(db: Database.Database, oldVersion: number): void {
           UNIQUE(project_id, name)
       );
     `);
+  }
+
+  if (oldVersion < 3) {
+    const hasTagsColumn = (db.prepare("PRAGMA table_info(tasks)").all() as { name: string }[]).some(
+      (column) => column.name === "tags",
+    );
+    if (!hasTagsColumn) {
+      db.exec(`ALTER TABLE tasks ADD COLUMN tags TEXT NOT NULL DEFAULT '[]'`);
+    }
   }
 
   db.prepare("UPDATE schema_version SET version = ?").run(SCHEMA_VERSION);

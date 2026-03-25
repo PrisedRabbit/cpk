@@ -66,7 +66,7 @@ export const initCommand = new Command("init")
         console.log('    "Read the PRD with `cpk docs search prd` and decompose it');
         console.log('     into tasks using `cpk task add`. Follow the Board Setup Guide."');
       } else {
-        console.log('  cpk task add --title "First task" --priority P0');
+        console.log('  cpk task add --title "First task" --tags "setup" --priority P0');
       }
     } catch (err) {
       handleError(err);
@@ -86,12 +86,19 @@ When asked to set up a task board from a PRD or project description:
      --title "..." \\
      --description "..." \\
      --priority P0|P1|P2 \\
+     --tags "tag-1,tag-2" \\
      --depends-on T-001,T-002 \\
      --verify "concrete command that proves completion" \\
      --acceptance-criteria "criterion 1" --acceptance-criteria "criterion 2"
 
 5. Or use batch mode for efficiency:
    cpk task add --batch tasks.json
+
+   Example tasks.json:
+   [
+     {"title":"Set up auth","priority":"P0","tags":["auth","jwt"]},
+     {"title":"Add tests","priority":"P1","tags":["test"]}
+   ]
 
 6. Verify the board: \`cpk board status\`
 
