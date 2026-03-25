@@ -377,6 +377,18 @@ export function updateTask(
       .get(taskId, projectId) as Record<string, unknown> | undefined;
     if (!existing) return undefined;
 
+    const currentDependsOn = parseJsonArray(existing.depends_on);
+    const nextDependsOn = input.depends_on ?? currentDependsOn;
+    const depsMet = computeDepsMet(projectId, nextDependsOn);
+
+    let nextStatus = (input.status ?? existing.status) as Task["status"];
+    if (!depsMet && nextStatus === "open") {
+      nextStatus = "backlog";
+    }
+    if (depsMet && existing.status === "backlog" && nextStatus === "backlog") {
+      nextStatus = "open";
+    }
+
     const sets: string[] = ["updated_at = datetime('now')"];
     const params: unknown[] = [];
 
@@ -394,7 +406,10 @@ export function updateTask(
     }
     if (input.status !== undefined) {
       sets.push("status = ?");
-      params.push(input.status);
+      params.push(nextStatus);
+    } else if (nextStatus !== existing.status) {
+      sets.push("status = ?");
+      params.push(nextStatus);
     }
     if (input.assignee !== undefined) {
       sets.push("assignee = ?");
@@ -414,7 +429,11 @@ export function updateTask(
     }
     if (input.depends_on !== undefined) {
       sets.push("depends_on = ?");
-      params.push(JSON.stringify(input.depends_on));
+      params.push(JSON.stringify(nextDependsOn));
+    }
+    if (input.depends_on !== undefined || depsMet !== boolFromInt(existing.deps_met)) {
+      sets.push("deps_met = ?");
+      params.push(depsMet ? 1 : 0);
     }
     if (input.acceptance_criteria !== undefined) {
       sets.push("acceptance_criteria = ?");

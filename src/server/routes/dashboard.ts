@@ -150,6 +150,12 @@ body { font-family: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Robo
 .detail-label { font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px;
   color: var(--text-muted); margin-bottom: 4px; }
 .detail-value { font-size: 13px; line-height: 1.5; }
+.detail-form { display: flex; flex-direction: column; gap: 14px; margin-bottom: 16px; }
+.detail-form-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+.detail-field { display: flex; flex-direction: column; gap: 4px; }
+.detail-error { min-height: 16px; font-size: 12px; color: var(--status-blocked); }
+.detail-meta { display: flex; flex-wrap: wrap; gap: 12px; font-size: 12px; color: var(--text-muted); }
+.detail-meta strong { color: var(--text); }
 .detail-code { background: var(--surface); padding: 8px 10px; border-radius: 4px; font-size: 12px;
   white-space: pre-wrap; word-break: break-all; position: relative; }
 .detail-code .copy-btn { position: absolute; top: 4px; right: 4px; background: var(--card);
@@ -347,6 +353,7 @@ let projectId = null;
 let allTasks = [];
 let allAgents = [];
 let selectedTask = null;
+let detailFormLocked = false;
 let lastFetch = Date.now();
 
 const API = '/api';
@@ -421,7 +428,7 @@ async function refresh() {
     renderCoordinationWarning(board.coordination);
     lastFetch = Date.now();
     updateRefreshIndicator();
-    if (selectedTask) {
+    if (selectedTask && !detailFormLocked) {
       const updated = tasks.find(t => t.id === selectedTask.id);
       if (updated) { selectedTask = updated; renderDetail(updated); }
     }
@@ -569,6 +576,7 @@ function openDetail(id) {
   const t = allTasks.find(t => t.id === id);
   if (!t) return;
   selectedTask = t;
+  detailFormLocked = false;
   renderDetail(t);
   document.getElementById('detail-panel').classList.add('open');
 }
@@ -576,6 +584,7 @@ function openDetail(id) {
 function closeDetail() {
   document.getElementById('detail-panel').classList.remove('open');
   selectedTask = null;
+  detailFormLocked = false;
 }
 
 function renderDetail(t) {
@@ -585,15 +594,27 @@ function renderDetail(t) {
     done: 'var(--status-done)', backlog: 'var(--status-backlog)' }[t.status];
 
   let html = '<div class="detail-id mono">' + t.task_number + '</div>';
-  html += '<div class="detail-title">' + esc(t.title) + '</div>';
-
-  // Status + Priority row
-  html += '<div style="display:flex;gap:12px;margin-bottom:16px">';
-  html += '<div><span class="detail-label">Status</span><br><span style="color:' + sColor + ';font-weight:600;font-size:12px">' + t.status.toUpperCase() + '</span></div>';
-  html += '<div><span class="detail-label">Priority</span><br><span style="color:' + pColor + ';font-weight:600;font-size:12px">' + t.priority + '</span></div>';
-  if (t.assignee) html += '<div><span class="detail-label">Assignee</span><br><span style="font-size:12px">' + esc(t.assignee) + '</span></div>';
-  if (t.epic) html += '<div><span class="detail-label">Epic</span><br><span style="font-size:12px">' + esc(t.epic) + '</span></div>';
+  html += '<form class="detail-form" onfocusin="lockDetailEdit()" oninput="lockDetailEdit()" onsubmit="saveTaskEdit(event, \\'' + t.id + '\\')">';
+  html += '<div class="detail-field"><label class="detail-label" for="task-title-' + t.id + '">Title</label>';
+  html += '<input class="form-input" id="task-title-' + t.id + '" name="title" value="' + esc(t.title) + '" required maxlength="200" /></div>';
+  html += '<div class="detail-field"><label class="detail-label" for="task-description-' + t.id + '">Description</label>';
+  html += '<textarea class="form-textarea detail-textarea" id="task-description-' + t.id + '" name="description" maxlength="5000">' + esc(t.description || '') + '</textarea></div>';
+  html += '<div class="detail-form-grid">';
+  html += '<div class="detail-field"><label class="detail-label" for="task-priority-' + t.id + '">Priority</label><select class="form-select priority-select" id="task-priority-' + t.id + '" name="priority">';
+  html += ['P0', 'P1', 'P2'].map(p => '<option value="' + p + '"' + (t.priority === p ? ' selected' : '') + '>' + p + '</option>').join('');
+  html += '</select></div>';
+  html += '<div class="detail-field"><label class="detail-label" for="task-status-' + t.id + '">Status</label><select class="form-select status-select" id="task-status-' + t.id + '" name="status">';
+  html += ['backlog', 'open', 'in-progress', 'review', 'blocked', 'done'].map(status => '<option value="' + status + '"' + (t.status === status ? ' selected' : '') + '>' + status + '</option>').join('');
+  html += '</select></div>';
+  html += '<div class="detail-field"><label class="detail-label" for="task-epic-' + t.id + '">Epic</label>';
+  html += '<input class="form-input" id="task-epic-' + t.id + '" name="epic" value="' + esc(t.epic || '') + '" maxlength="100" placeholder="Feature area" /></div>';
+  html += '<div class="detail-field"><label class="detail-label" for="task-depends-' + t.id + '">Depends On</label>';
+  html += '<input class="form-input mono" id="task-depends-' + t.id + '" name="depends_on" value="' + esc((t.depends_on || []).join(', ')) + '" placeholder="T-001, T-002" /></div>';
   html += '</div>';
+  html += '<div class="detail-error" id="task-error-' + t.id + '" aria-live="polite"></div>';
+  html += '<div class="detail-actions"><button class="btn btn-primary" type="submit">Save</button><button class="btn btn-secondary" type="button" onclick="closeDetail()">Cancel</button></div>';
+  html += '</form>';
+  html += '<div class="detail-meta"><span><strong>Assignee:</strong> ' + (t.assignee ? esc(t.assignee) : 'unassigned') + '</span><span><strong>Status:</strong> <span style="color:' + sColor + '">' + t.status + '</span></span><span><strong>Priority:</strong> <span style="color:' + pColor + '">' + t.priority + '</span></span></div>';
 
   html += '<div class="detail-row"><div class="detail-label">Tags</div>';
   html += '<div id="tags-view-' + t.id + '" class="tags-list">' +
@@ -656,6 +677,51 @@ function renderDetail(t) {
   html += '</div>';
 
   document.getElementById('detail-content').innerHTML = html;
+}
+
+function lockDetailEdit() {
+  detailFormLocked = true;
+}
+
+async function saveTaskEdit(e, id) {
+  e.preventDefault();
+  const form = e.currentTarget;
+  const errorEl = document.getElementById('task-error-' + id);
+  const button = form.querySelector('button[type="submit"]');
+  const fd = new FormData(form);
+  const title = String(fd.get('title') || '').trim();
+  if (!title) {
+    if (errorEl) errorEl.textContent = 'Title is required.';
+    return;
+  }
+
+  const payload = {
+    title,
+    description: String(fd.get('description') || ''),
+    priority: fd.get('priority'),
+    status: fd.get('status'),
+    epic: String(fd.get('epic') || '').trim() || null,
+    depends_on: parseCsv(fd.get('depends_on')),
+  };
+
+  try {
+    if (errorEl) errorEl.textContent = '';
+    if (button) {
+      button.disabled = true;
+      button.textContent = 'Saving...';
+    }
+    await api('/tasks/' + id, { method: 'PATCH', body: JSON.stringify(payload) });
+    detailFormLocked = false;
+    await refresh();
+  } catch (e) {
+    const message = e && (e.message || e.error) ? (e.message || e.error) : 'Failed to save task';
+    if (errorEl) errorEl.textContent = message;
+  } finally {
+    if (button) {
+      button.disabled = false;
+      button.textContent = 'Save';
+    }
+  }
 }
 
 // ===== ACTIONS =====

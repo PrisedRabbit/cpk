@@ -119,4 +119,54 @@ describe("tasks routes", () => {
       tags: ["release", "ops"],
     });
   });
+
+  it("passes the dashboard edit payload through PATCH /tasks/:id", async () => {
+    getTask.mockReturnValue({
+      id: "task-1",
+      status: "backlog",
+      title: "Original",
+    });
+    updateTask.mockReturnValue({
+      id: "task-1",
+      status: "open",
+      title: "Updated",
+      description: "Updated description",
+      priority: "P0",
+      epic: "Platform",
+      depends_on: ["T-001"],
+    });
+
+    const { default: tasks } = await import("./tasks.js");
+    const { handleError } = await import("../middleware/error.js");
+    const app = new Hono();
+    app.onError(handleError);
+    app.route("/", tasks);
+
+    const response = await app.request(
+      new Request("http://localhost/tasks/task-1?project_id=proj-1", {
+        method: "PATCH",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          title: "Updated",
+          description: "Updated description",
+          priority: "P0",
+          status: "open",
+          epic: "Platform",
+          depends_on: ["T-001"],
+        }),
+      }),
+    );
+
+    expect(response.status).toBe(200);
+    const body = (await response.json()) as { data: { title: string } };
+    expect(body.data.title).toBe("Updated");
+    expect(updateTask).toHaveBeenCalledWith("proj-1", "task-1", {
+      title: "Updated",
+      description: "Updated description",
+      priority: "P0",
+      status: "open",
+      epic: "Platform",
+      depends_on: ["T-001"],
+    });
+  });
 });

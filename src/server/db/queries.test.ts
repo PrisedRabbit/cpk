@@ -131,6 +131,109 @@ describe("queries", () => {
       expect(updated?.tags).toEqual(["release", "ops"]);
     });
 
+    it("updates editable fields and recomputes deps_met when dependencies change", () => {
+      const dep = db.createTask(projectId, {
+        title: "Dependency",
+        priority: "P0",
+        depends_on: [],
+        acceptance_criteria: [],
+        status: "open",
+      });
+      db.pickupTask(projectId, "dev");
+      db.completeTask(projectId, dep.id, "dev");
+
+      const task = db.createTask(projectId, {
+        title: "Original",
+        description: "Old description",
+        priority: "P2",
+        epic: "Old epic",
+        depends_on: ["T-999"],
+        acceptance_criteria: [],
+        status: "open",
+      });
+
+      expect(task.status).toBe("backlog");
+      expect(task.deps_met).toBe(false);
+
+      const updated = db.updateTask(projectId, task.id, {
+        title: "Updated title",
+        description: "Updated description",
+        priority: "P0",
+        status: "open",
+        epic: "New epic",
+        depends_on: [dep.task_number],
+      });
+
+      expect(updated?.title).toBe("Updated title");
+      expect(updated?.description).toBe("Updated description");
+      expect(updated?.priority).toBe("P0");
+      expect(updated?.status).toBe("open");
+      expect(updated?.epic).toBe("New epic");
+      expect(updated?.depends_on).toEqual([dep.task_number]);
+      expect(updated?.deps_met).toBe(true);
+    });
+
+    it("demotes open tasks to backlog when an unmet dependency is added", () => {
+      db.createTask(projectId, {
+        title: "Unmet dependency",
+        priority: "P0",
+        depends_on: [],
+        acceptance_criteria: [],
+        status: "open",
+      });
+      const task = db.createTask(projectId, {
+        title: "Editable",
+        priority: "P1",
+        depends_on: [],
+        acceptance_criteria: [],
+        status: "open",
+      });
+
+      const updated = db.updateTask(projectId, task.id, {
+        title: "Editable",
+        description: "Still editable",
+        priority: "P1",
+        status: "open",
+        epic: "UI",
+        depends_on: ["T-999"],
+      });
+
+      expect(updated?.status).toBe("backlog");
+      expect(updated?.deps_met).toBe(false);
+      expect(updated?.depends_on).toEqual(["T-999"]);
+    });
+
+    it("reopens backlog tasks when dependencies become met even if status is sent", () => {
+      const dep = db.createTask(projectId, {
+        title: "Dependency",
+        priority: "P0",
+        depends_on: [],
+        acceptance_criteria: [],
+        status: "open",
+      });
+      db.pickupTask(projectId, "dev");
+      db.completeTask(projectId, dep.id, "dev");
+      const task = db.createTask(projectId, {
+        title: "Waiting",
+        priority: "P1",
+        depends_on: ["T-999"],
+        acceptance_criteria: [],
+        status: "open",
+      });
+
+      expect(task.status).toBe("backlog");
+      expect(task.deps_met).toBe(false);
+
+      const updated = db.updateTask(projectId, task.id, {
+        status: "backlog",
+        depends_on: [dep.task_number],
+      });
+
+      expect(updated?.status).toBe("open");
+      expect(updated?.deps_met).toBe(true);
+      expect(updated?.depends_on).toEqual([dep.task_number]);
+    });
+
     it("migrates existing task rows to include tags", () => {
       const legacyDir = mkdtempSync(join(tmpdir(), "cpk-legacy-db-"));
       const legacyPath = join(legacyDir, "data.db");
